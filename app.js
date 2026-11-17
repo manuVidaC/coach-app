@@ -4,7 +4,7 @@ const SUPA_URL = "https://iglbakcgsahqmoepkoyc.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGJha2Nnc2FocW1vZXBrb3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5Mjc0NzAsImV4cCI6MjExMDUwMzQ3MH0.XENiPTNHvEWkva0agvbGRHrbmGGKt40dEQ8ZTgNMWz4";
 const VAPID = "BJJQBXNoM0RiUnLaiZx4BxfKxSCGfNpkIIH_PTa-48WnvwrwTADD_mzZ1dJOuUkXvBCDKbndtNUaIZKFNEfvPDA";
 const FN = SUPA_URL + "/functions/v1/coach";
-const VERSION = "1.0.0";
+const VERSION = "1.0.1";
 
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: "coach-auth" } });
 const $ = (s, e = document) => e.querySelector(s);
@@ -63,7 +63,7 @@ function showLogin(step = "email", email = store.get("coach-email", "")) {
         <input id="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="tu@email.com" value="${esc(email)}" required>
         <p class="err" id="err" role="alert"></p>
         <button class="btn primary block" id="go" type="submit">Enviarme un código</button>
-        <p style="font-size:13px">Te llega un código de 6 cifras. Sin contraseñas.</p>
+        <p style="font-size:13px">Te llega un código por email. Sin contraseñas.</p>
       </form>
     </div>`;
     const f = $("#f"), inp = $("#email"), err = $("#err"), go = $("#go");
@@ -85,8 +85,8 @@ function showLogin(step = "email", email = store.get("coach-email", "")) {
     <img class="logo" src="icons/icon-192.png" alt="">
     <div><h1>Revisa tu correo</h1><p style="margin-top:8px">Te hemos enviado un código a <strong style="color:#fff">${esc(email)}</strong>.</p></div>
     <form class="card" id="f" novalidate>
-      <label for="code">Código de 6 cifras</label>
-      <input id="code" class="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="6" placeholder="······">
+      <label for="code">Código del email</label>
+      <input id="code" class="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="8" placeholder="········">
       <p class="err" id="err" role="alert"></p>
       <button class="btn primary block" id="go" type="submit">Entrar</button>
     </form>
@@ -98,12 +98,12 @@ function showLogin(step = "email", email = store.get("coach-email", "")) {
   tick();
   const verify = async () => {
     const t = inp.value.replace(/\D/g, "");
-    if (t.length !== 6) { err.textContent = "El código tiene 6 cifras."; return; }
+    if (t.length < 6) { err.textContent = "Escribe el código completo del email."; return; }
     go.disabled = true; go.textContent = "Comprobando…";
     const { error } = await sb.auth.verifyOtp({ email, token: t, type: "email" });
-    if (error) { go.disabled = false; go.textContent = "Entrar"; err.textContent = /expired/i.test(error.message) ? "El código ha caducado. Pide otro." : "Código incorrecto. Revísalo e inténtalo otra vez."; inp.select(); return; }
+    if (error) { go.disabled = false; go.textContent = "Entrar"; err.textContent = "Ese código no vale: revísalo o pide uno nuevo (caduca en una hora y solo sirve el último)."; inp.select(); return; }
   };
-  inp.oninput = () => { err.textContent = ""; inp.value = inp.value.replace(/\D/g, "").slice(0, 6); if (inp.value.length === 6) verify(); };
+  inp.oninput = () => { err.textContent = ""; inp.value = inp.value.replace(/\D/g, "").slice(0, 8); if (inp.value.length === 8) verify(); };
   $("#f").onsubmit = e => { e.preventDefault(); verify(); };
   $("#change").onclick = () => showLogin("email", email);
   resend.onclick = async () => { resend.disabled = true; await sb.auth.signInWithOtp({ email }); store.set("coach-otp-at", Date.now()); tick(); toast("Código reenviado"); };
@@ -477,7 +477,7 @@ sb.auth.onAuthStateChange((ev, s) => {
   if (!s && ev === "SIGNED_OUT") { entered = false; store.del("coach-cache"); S.rides = []; S.weeks = {}; S.plan = null; S.profile = null; if (channel) sb.removeChannel(channel); showLogin(); }
 });
 (async () => {
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+  if ("serviceWorker" in navigator) { const had = !!navigator.serviceWorker.controller; navigator.serviceWorker.register("sw.js").catch(() => {}); let reloaded = false; navigator.serviceWorker.addEventListener("controllerchange", () => { if (had && !reloaded) { reloaded = true; location.reload(); } }); }
   navigator.serviceWorker?.addEventListener("message", e => { if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h) { history.pushState({}, "", h); renderSheet(); } } });
   const { data } = await sb.auth.getSession();
   session = data.session;
