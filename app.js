@@ -4,7 +4,7 @@ const SUPA_URL = "https://iglbakcgsahqmoepkoyc.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGJha2Nnc2FocW1vZXBrb3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5Mjc0NzAsImV4cCI6MjExMDUwMzQ3MH0.XENiPTNHvEWkva0agvbGRHrbmGGKt40dEQ8ZTgNMWz4";
 const VAPID = "BJJQBXNoM0RiUnLaiZx4BxfKxSCGfNpkIIH_PTa-48WnvwrwTADD_mzZ1dJOuUkXvBCDKbndtNUaIZKFNEfvPDA";
 const FN = SUPA_URL + "/functions/v1/coach";
-const VERSION = "1.0.1";
+const VERSION = "1.0.2";
 
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: "coach-auth" } });
 const $ = (s, e = document) => e.querySelector(s);
@@ -412,18 +412,26 @@ function wireFeedback(r) {
   if (!ta) return;
   ta.value = store.get("coach-draft-" + r.id, "");
   ta.oninput = () => { err.textContent = ""; store.set("coach-draft-" + r.id, ta.value); };
+  let rec = null, recDone = null;
+  const stopRec = () => new Promise(res => { if (!rec) return res(); recDone = res; try { rec.stop(); } catch { rec = null; res(); } setTimeout(() => { if (rec) { try { rec.abort(); } catch {} rec = null; } res(); }, 1500); });
   if (mic) {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition; let rec = null, base = "";
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition; let base = "";
+    const idle = () => { mic.innerHTML = `${ICON.mic} Dictar`; mic.classList.remove("primary"); };
     mic.onclick = () => {
-      if (rec) { rec.stop(); return; }
+      if (rec) { stopRec(); return; }
       rec = new SR(); rec.lang = "es-ES"; rec.interimResults = true; rec.continuous = true; base = ta.value ? ta.value.trim() + " " : "";
+      let started = false;
+      rec.onstart = () => { started = true; mic.innerHTML = "■ Parar dictado"; mic.classList.add("primary"); };
       rec.onresult = e => { let s = ""; for (const x of e.results) s += x[0].transcript; ta.value = base + s; store.set("coach-draft-" + r.id, ta.value); };
-      rec.onend = () => { rec = null; mic.innerHTML = `${ICON.mic} Dictar`; mic.classList.remove("primary"); };
-      rec.onerror = () => { err.textContent = "No se pudo dictar. Usa el micrófono del teclado."; };
-      try { rec.start(); mic.innerHTML = "■ Parar"; } catch { rec = null; }
+      rec.onend = () => { rec = null; idle(); if (recDone) { const d = recDone; recDone = null; d(); } };
+      rec.onerror = e => { if (e.error === "not-allowed" || e.error === "service-not-allowed") err.textContent = "Sin permiso de micrófono. Usa el micrófono del teclado o actívalo en Ajustes del iPhone."; else if (e.error !== "aborted" && e.error !== "no-speech") err.textContent = "No se pudo dictar. Usa el micrófono del teclado."; };
+      mic.innerHTML = "Activando micrófono…";
+      try { rec.start(); } catch { rec = null; idle(); return; }
+      setTimeout(() => { if (rec && !started) { try { rec.abort(); } catch {} rec = null; idle(); err.textContent = "El micrófono no respondió. Vuelve a pulsar Dictar o usa el micrófono del teclado."; } }, 8000);
     };
   }
   send.onclick = async () => {
+    await stopRec();
     const text = ta.value.trim();
     if (text.length < 5) { err.textContent = "Cuéntale algo al coach antes de enviar."; ta.focus(); return; }
     ta.blur(); send.disabled = true; wireFeedback.busy = true;
@@ -432,7 +440,7 @@ function wireFeedback(r) {
     wireFeedback.busy = false; send.disabled = false;
     if (!res.ok) {
       live.innerHTML = "";
-      err.textContent = { falta_clave: "El análisis aún no está configurado. Avisa a Manu.", no_autorizado: "Tu cuenta aún no está activada.", red: "Sin conexión. Tu texto sigue guardado; inténtalo en un momento." }[res.error] || "No se pudo analizar ahora. Tu texto sigue guardado; inténtalo otra vez.";
+      err.textContent = { falta_clave: "El análisis aún no está configurado. Avisa a Manu.", no_autorizado: "Tu cuenta aún no está activada.", red: "Sin conexión. Tu texto sigue guardado; inténtalo en un momento." }[res.error] || `No se pudo analizar ahora (${res.error || "error"}). Tu texto sigue guardado; inténtalo otra vez.`;
       return;
     }
     store.del("coach-draft-" + r.id);
