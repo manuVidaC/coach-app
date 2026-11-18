@@ -4,7 +4,7 @@ const SUPA_URL = "https://iglbakcgsahqmoepkoyc.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGJha2Nnc2FocW1vZXBrb3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5Mjc0NzAsImV4cCI6MjExMDUwMzQ3MH0.XENiPTNHvEWkva0agvbGRHrbmGGKt40dEQ8ZTgNMWz4";
 const VAPID = "BJJQBXNoM0RiUnLaiZx4BxfKxSCGfNpkIIH_PTa-48WnvwrwTADD_mzZ1dJOuUkXvBCDKbndtNUaIZKFNEfvPDA";
 const FN = SUPA_URL + "/functions/v1/coach";
-const VERSION = "1.0.2";
+const VERSION = "1.1.0";
 
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: "coach-auth" } });
 const $ = (s, e = document) => e.querySelector(s);
@@ -24,7 +24,7 @@ const store = { get(k, f) { try { const v = localStorage.getItem(k); return v ? 
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 const standalone = window.navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
 
-const S = Object.assign({ rides: [], weeks: {}, plan: null, profile: null }, store.get("coach-cache", {}));
+const S = Object.assign({ rides: [], weeks: {}, plan: null, profile: null, strength: [] }, store.get("coach-cache", {}));
 let session = null, tab = store.get("coach-tab", "semana"), channel = null;
 
 const ICON = {
@@ -35,6 +35,7 @@ const ICON = {
   plus: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M12 8v8M8 12h8"/></svg>',
   refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg>',
   chev: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
+  dumbbell: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 7v10M3 9.5v5M18 7v10M21 9.5v5M6 12h12"/></svg>',
   mic: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
 };
 
@@ -117,17 +118,18 @@ function showNoAccess() {
 }
 
 /* ---------- Datos ---------- */
-function saveCache() { store.set("coach-cache", { rides: S.rides, weeks: S.weeks, plan: S.plan, profile: S.profile }); }
+function saveCache() { store.set("coach-cache", { rides: S.rides, weeks: S.weeks, plan: S.plan, profile: S.profile, strength: S.strength }); }
 async function loadAll() {
   const uid = session.user.id;
-  const [p, r, w, pl] = await Promise.all([
+  const [p, r, w, pl, st] = await Promise.all([
     sb.from("profiles").select("*").eq("id", uid).maybeSingle(),
     sb.from("rides").select("id,date,title,status,metrics,climbs,insights,plan,intervals_url,feedback,analysis").order("date", { ascending: false }).limit(120),
     sb.from("weeks").select("*").order("week_start", { ascending: true }),
     sb.from("plans").select("data,updated_at").maybeSingle(),
+    sb.from("strength_sessions").select("*").order("date", { ascending: false }).limit(120),
   ]);
   if (p.error || r.error) throw p.error || r.error;
-  S.profile = p.data; S.rides = r.data || []; S.weeks = {}; (w.data || []).forEach(x => (S.weeks[x.week_start] = x)); S.plan = pl.data?.data || null;
+  S.profile = p.data; S.rides = r.data || []; S.weeks = {}; (w.data || []).forEach(x => (S.weeks[x.week_start] = x)); S.plan = pl.data?.data || null; S.strength = st.data || [];
   saveCache();
 }
 function subscribe() {
@@ -139,6 +141,7 @@ function subscribe() {
     .on("postgres_changes", { event: "*", schema: "public", table: "rides", filter: "user_id=eq." + uid }, later)
     .on("postgres_changes", { event: "*", schema: "public", table: "weeks", filter: "user_id=eq." + uid }, later)
     .on("postgres_changes", { event: "*", schema: "public", table: "plans", filter: "user_id=eq." + uid }, later)
+    .on("postgres_changes", { event: "*", schema: "public", table: "strength_sessions", filter: "user_id=eq." + uid }, later)
     .subscribe();
 }
 async function callFn(action, body) {
@@ -150,7 +153,9 @@ async function callFn(action, body) {
 }
 
 /* ---------- Lógica de semana ---------- */
-function target() { return Object.assign({ load: 500, rides: 3, min_rides: 2, long_min_h: 2.5, long_min_kj: 1300, quality_if: 0.85 }, S.profile?.context?.week_target || {}); }
+function target() { return Object.assign({ load: 500, rides: 3, min_rides: 2, long_min_h: 2.5, long_min_kj: 1300, quality_if: 0.85, strength: 1 }, S.profile?.context?.week_target || {}); }
+const LEG_ZONES = ["cuadriceps", "isquios", "gluteos", "gemelos", "aductores"];
+const legsLevel = x => Math.max(0, ...LEG_ZONES.map(k => (x.zones || {})[k] || 0));
 const isLong = r => { const m = r.metrics || {}, t = target(); return hrs(m.moving) >= t.long_min_h || (m.kj || 0) >= t.long_min_kj; };
 const isHard = r => { const m = r.metrics || {}; return (m.if || 0) >= 0.82 || (m.load || 0) >= 150; };
 const isQuality = r => { const m = r.metrics || {}; return (m.if || 0) >= target().quality_if && hrs(m.moving) >= 0.75; };
@@ -159,10 +164,14 @@ function weekState() {
   const inW = S.rides.filter(r => { const d = pd(r.date); return d >= mon && d < end; });
   const load = inW.reduce((a, r) => a + (r.metrics?.load || 0), 0), h = inW.reduce((a, r) => a + hrs(r.metrics?.moving), 0);
   const left = 6 - ((today().getDay() + 6) % 7);
-  return { key, mon, inW, load, h, pct: Math.round(load / t.load * 100), long: inW.some(isLong), quality: inW.some(isQuality), left, t };
+  const strW = (S.strength || []).filter(x => { const d = pd(x.date); return d >= mon && d < end; });
+  return { key, mon, inW, strW, load, h, pct: Math.round(load / t.load * 100), long: inW.some(isLong), quality: inW.some(isQuality), left, t };
 }
 function nextAdvice(w) {
   const s = [...S.rides].sort((a, b) => b.date.localeCompare(a.date)), last = s[0], prev = s[1], out = [];
+  const recentLegs = (S.strength || []).find(x => Math.round((today() - pd(x.date)) / 864e5) <= 1 && legsLevel(x) >= 2);
+  if (recentLegs) out.push({ warn: 1, t: `Trabajaste piernas en fuerza ${pd(recentLegs.date).getTime() === today().getTime() ? "hoy" : "ayer"}. Nada de series ni calidad en bici hasta pasado mañana: rodaje suave o descanso.` });
+  if (!w.strW.length && w.left <= 3 && target().strength > 0) out.push({ t: "Esta semana aún no has hecho fuerza. Una sesión corta de piernas y core suma, lejos de tu día de calidad." });
   if (!last) return out;
   const since = Math.round((today() - pd(last.date)) / 864e5), tsb = last.metrics?.fitness?.tsb;
   const twoHard = prev && isHard(last) && isHard(prev) && Math.round((pd(last.date) - pd(prev.date)) / 864e5) <= 1;
@@ -190,12 +199,13 @@ function weekView() {
   <section class="card">
     <div class="row between" style="align-items:baseline"><p><span class="num" style="font-size:44px">${w.pct} %</span> <span class="muted">del objetivo</span></p><p class="muted small">${nf(w.load)} / ${nf(t.load)} de carga</p></div>
     <div class="meter" role="img" aria-label="Carga ${w.pct} % del objetivo"><div style="width:${Math.min(100, w.pct)}%"></div></div>
-    <p class="muted small">${fmtH(w.h)} · ${w.inW.length} salida${w.inW.length == 1 ? "" : "s"} · quedan ${w.left} día${w.left == 1 ? "" : "s"}</p>
+    <p class="muted small">${fmtH(w.h)} · ${w.inW.length} salida${w.inW.length == 1 ? "" : "s"}${w.strW.length ? ` · ${w.strW.length} de fuerza` : ""} · quedan ${w.left} día${w.left == 1 ? "" : "s"}</p>
+    <button class="btn" data-new-strength style="align-self:flex-start">${ICON.dumbbell} Añadir fuerza</button>
     <div class="checks">
       <div class="check ${w.inW.length >= t.rides ? "done" : ""}"><span class="d">${w.inW.length >= t.rides ? "✓" : ""}</span>${w.inW.length} de ${t.rides} salidas</div>
       <div class="check ${w.long ? "done" : ""}"><span class="d">${w.long ? "✓" : ""}</span>Tirada larga</div>
       <div class="check ${w.quality ? "done" : ""}"><span class="d">${w.quality ? "✓" : ""}</span>Calidad</div>
-      <div class="check ${w.inW.length >= t.min_rides ? "done" : ""}"><span class="d">${w.inW.length >= t.min_rides ? "✓" : ""}</span>Mínimo ${t.min_rides}</div>
+      <div class="check ${w.strW.length >= t.strength ? "done" : ""}"><span class="d">${w.strW.length >= t.strength ? "✓" : ""}</span>Fuerza${w.strW.length ? ` (${w.strW.length})` : ""}</div>
     </div>
   </section>
   <section class="card"><h3>Qué toca</h3>
@@ -224,9 +234,15 @@ function planCard(compact) {
 }
 function ridesView() {
   const pend = S.rides.filter(r => r.status !== "analizada").length;
-  return `<header><p class="eyebrow">${pend ? pend + " pendiente" + (pend > 1 ? "s" : "") + " de feedback" : "Todo analizado"}</p><h1>Salidas</h1></header>
-  ${S.rides.length ? `<div class="list">${S.rides.map(r => { const d = pd(r.date), m = r.metrics || {}, p = r.status !== "analizada"; return `<button class="ride" data-ride="${esc(r.id)}"><div class="date"><b>${d.getDate()}</b><span>${MON[d.getMonth()]} · ${DAYS[d.getDay()]}</span></div><div style="min-width:0"><p class="t">${esc(r.title || "Salida")}</p><p class="m">${m.km ?? "–"} km · ${m.elev_m ?? "–"} m · ${esc(m.moving || "")}</p></div><span class="pill ${p ? "pend" : "ok"}">${p ? "Pendiente" : "Analizada"}</span></button>`; }).join("")}</div>`
-    : `<div class="empty">Aún no hay salidas. Sincroniza una desde el Karoo y tira hacia abajo para buscarla.</div>`}`;
+  const items = [...S.rides.map(r => ({ k: "r", d: r.date, x: r })), ...(S.strength || []).map(x => ({ k: "f", d: x.date, x }))].sort((a, b) => b.d.localeCompare(a.d) || (a.k === "f" ? 1 : -1));
+  const row = it => {
+    const d = pd(it.d), dt = `<div class="date"><b>${d.getDate()}</b><span>${MON[d.getMonth()]} · ${DAYS[d.getDay()]}</span></div>`;
+    if (it.k === "f") { const x = it.x, z = topZones(x.zones); return `<button class="ride" data-strength="${esc(x.id)}">${dt}<div style="min-width:0"><p class="t">Fuerza · ${esc(x.kind)}</p><p class="m">${x.minutes} min · esfuerzo ${x.rpe}${z ? " · " + esc(z) : ""}</p></div><span class="pill str">Fuerza</span></button>`; }
+    const r = it.x, m = r.metrics || {}, p = r.status !== "analizada";
+    return `<button class="ride" data-ride="${esc(r.id)}">${dt}<div style="min-width:0"><p class="t">${esc(r.title || "Salida")}</p><p class="m">${m.km ?? "–"} km · ${m.elev_m ?? "–"} m · ${esc(m.moving || "")}</p></div><span class="pill ${p ? "pend" : "ok"}">${p ? "Pendiente" : "Analizada"}</span></button>`;
+  };
+  return `<header class="row between" style="align-items:flex-end"><div><p class="eyebrow">${pend ? pend + " pendiente" + (pend > 1 ? "s" : "") + " de feedback" : "Todo analizado"}</p><h1>Salidas</h1></div><button class="btn" data-new-strength>${ICON.dumbbell} Fuerza</button></header>
+  ${items.length ? `<div class="list">${items.map(row).join("")}</div>` : `<div class="empty">Aún no hay salidas. Sincroniza una desde el Karoo y tira hacia abajo para buscarla.</div>`}`;
 }
 function planView() {
   return `<header><p class="eyebrow">Lo que te propone el coach</p><h1>Plan</h1></header>${planCard(false)}
@@ -330,6 +346,8 @@ function shell() {
 }
 function onContentClick(e) {
   const r = e.target.closest("[data-ride]"); if (r) { openSheet("r-" + r.dataset.ride); return; }
+  const f = e.target.closest("[data-strength]"); if (f) { openSheet("f-" + f.dataset.strength); return; }
+  if (e.target.closest("[data-new-strength]")) { openSheet("fuerza"); return; }
   const t = e.target.closest("[data-tab]"); if (t) { go(t.dataset.tab); return; }
   if (e.target.closest("#push-on")) enablePush();
 }
@@ -345,6 +363,11 @@ function renderSheet() {
     $("#st").textContent = "Ajustes"; $("#back-l").textContent = "Volver"; sc.innerHTML = settingsView();
     $("#logout").onclick = async () => { await sb.auth.signOut(); };
     const tg = $("#push-toggle"); if (tg) tg.onclick = async () => { if (tg.classList.contains("on")) { await disablePush(); tg.classList.remove("on"); } else if (await enablePush()) tg.classList.add("on"); };
+  } else if (h === "fuerza" || h.startsWith("f-")) {
+    if (sc.dataset.id === h && sh.classList.contains("on")) return; // no pisar el formulario abierto
+    const x = h === "fuerza" ? null : (S.strength || []).find(y => y.id === h.slice(2));
+    $("#st").textContent = x ? "Editar fuerza" : "Nueva sesión de fuerza"; $("#back-l").textContent = "Volver"; sc.dataset.id = h;
+    sc.innerHTML = strengthForm(x); wireStrength(x);
   } else if (h.startsWith("r-")) {
     const r = S.rides.find(x => x.id === h.slice(2));
     if (!r) { sc.innerHTML = `<div class="empty">Esta salida aún no está aquí. Tira hacia abajo en Salidas para buscarla.</div>`; }
@@ -404,6 +427,102 @@ function edgeSwipe(sh) {
   sh.addEventListener("touchstart", e => { const x = e.touches[0].clientX; if (x < 28) { x0 = x; dx = 0; sh.classList.add("drag"); } }, { passive: true });
   sh.addEventListener("touchmove", e => { if (x0 === null) return; dx = Math.max(0, e.touches[0].clientX - x0); sh.style.transform = `translateX(${dx}px)`; }, { passive: true });
   sh.addEventListener("touchend", () => { if (x0 === null) return; x0 = null; sh.classList.remove("drag"); sh.style.transform = ""; if (dx > 90) history.back(); });
+}
+
+/* ---------- Fuerza: maniquí y formulario ---------- */
+const ZONES = { hombros: "Hombros", pecho: "Pecho", biceps: "Bíceps", triceps: "Tríceps", antebrazos: "Antebrazos", abdomen: "Abdomen", oblicuos: "Oblicuos", trapecio: "Trapecio", espalda: "Espalda", lumbares: "Lumbares", gluteos: "Glúteos", cuadriceps: "Cuádriceps", isquios: "Isquios", aductores: "Aductores", gemelos: "Gemelos" };
+const LEVELS = ["Sin trabajar", "Ligero", "Medio", "A tope"];
+const PRESETS = {
+  "Piernas": { cuadriceps: 3, gluteos: 3, isquios: 2, gemelos: 2, aductores: 1 },
+  "Core": { abdomen: 3, oblicuos: 2, lumbares: 2 },
+  "Tren superior": { pecho: 2, espalda: 2, hombros: 2, biceps: 2, triceps: 2, trapecio: 1 },
+  "Completo": { cuadriceps: 2, gluteos: 2, isquios: 2, gemelos: 1, abdomen: 2, oblicuos: 1, lumbares: 1, pecho: 2, espalda: 2, hombros: 2, biceps: 1, triceps: 1 },
+};
+const KINDS = ["Sístole", "Gimnasio", "Core", "Movilidad", "Otro"];
+function topZones(z) { return Object.entries(z || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => ZONES[k].toLowerCase()).join(", "); }
+const E = (cx, cy, rx, ry) => `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}"/>`;
+const R = (x, y, w, h, r) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}"/>`;
+const BASE = `<circle cx="100" cy="36" r="21"/>${R(91, 54, 18, 18, 6)}${R(64, 72, 72, 140, 26)}${R(70, 192, 60, 44, 16)}${R(34, 80, 24, 72, 12)}${R(142, 80, 24, 72, 12)}${R(29, 148, 20, 74, 10)}${R(151, 148, 20, 74, 10)}<circle cx="39" cy="230" r="9"/><circle cx="161" cy="230" r="9"/>${R(68, 226, 31, 104, 14)}${R(101, 226, 31, 104, 14)}${R(70, 324, 25, 82, 11)}${R(105, 324, 25, 82, 11)}${E(82, 412, 14, 7)}${E(118, 412, 14, 7)}`;
+const FRONT = {
+  hombros: E(52, 90, 16, 13) + E(148, 90, 16, 13), pecho: E(86, 102, 17, 16) + E(114, 102, 17, 16),
+  biceps: E(46, 124, 10, 22) + E(154, 124, 10, 22), antebrazos: E(39, 184, 9, 26) + E(161, 184, 9, 26),
+  abdomen: R(89, 122, 22, 66, 8), oblicuos: E(76, 158, 8, 24) + E(124, 158, 8, 24),
+  aductores: E(95, 248, 5, 20) + E(105, 248, 5, 20), cuadriceps: E(82, 272, 13, 40) + E(118, 272, 13, 40),
+  gemelos: E(82, 356, 9, 26) + E(118, 356, 9, 26),
+};
+const BACK = {
+  trapecio: `<polygon points="82,70 118,70 126,90 100,112 74,90"/>`, hombros: E(52, 90, 16, 13) + E(148, 90, 16, 13),
+  espalda: E(82, 132, 16, 30) + E(118, 132, 16, 30), triceps: E(46, 124, 10, 22) + E(154, 124, 10, 22),
+  antebrazos: E(39, 184, 9, 26) + E(161, 184, 9, 26), lumbares: R(88, 162, 24, 32, 8),
+  gluteos: E(85, 214, 16, 17) + E(115, 214, 16, 17), isquios: E(84, 274, 13, 38) + E(116, 274, 13, 38),
+  gemelos: E(82, 352, 11, 28) + E(118, 352, 11, 28),
+};
+function bodySvg(view, zones, label) {
+  const map = view === "front" ? FRONT : BACK;
+  return `<figure class="body"><svg viewBox="0 0 200 424" role="group" aria-label="${label}"><g class="base">${BASE}</g>${Object.entries(map).map(([k, shp]) =>
+    `<g class="zone l${zones[k] || 0}" data-z="${k}" role="button" tabindex="0" aria-label="${ZONES[k]}: ${LEVELS[zones[k] || 0]}">${shp}</g>`).join("")}</svg><figcaption>${label}</figcaption></figure>`;
+}
+let FS = null;
+function strengthForm(x) {
+  const t = iso(today()), y = (() => { const d = today(); d.setDate(d.getDate() - 1); return iso(d); })();
+  FS = x ? { id: x.id, date: x.date, kind: x.kind, minutes: x.minutes, rpe: x.rpe, zones: { ...(x.zones || {}) }, note: x.note || "" }
+         : { date: t, kind: "Sístole", minutes: 60, rpe: 6, zones: {}, note: "" };
+  const chip = (grp, v, on, lab) => `<button type="button" class="chip ${on ? "on" : ""}" data-${grp}="${esc(v)}">${esc(lab ?? v)}</button>`;
+  return `<header><p class="eyebrow">Fuerza</p><h1>${x ? "Editar sesión" : "¿Qué has trabajado?"}</h1></header>
+  <section class="card"><h3>Toca las zonas</h3><p class="muted small">Cada toque sube un nivel: ligero, medio, a tope y vuelta a cero.</p>
+    <div class="bodies" id="bodies">${bodies()}</div>
+    <div class="legend lv"><span><i class="l1"></i>Ligero</span><span><i class="l2"></i>Medio</span><span><i class="l3"></i>A tope</span></div>
+    <div class="chips">${Object.keys(PRESETS).map(k => chip("preset", k, false)).join("")}<button type="button" class="chip ghost" data-preset="">Borrar</button></div>
+    <p class="small" id="zsum"></p>
+  </section>
+  <section class="card">
+    <div class="field"><span class="lab">Día</span><div class="chips">${chip("date", t, FS.date === t, "Hoy")}${chip("date", y, FS.date === y, "Ayer")}<input type="date" id="f-date" value="${FS.date}" max="${t}" aria-label="Otro día"></div></div>
+    <div class="field"><span class="lab">Tipo</span><div class="chips">${KINDS.map(k => chip("kind", k, FS.kind === k)).join("")}</div></div>
+    <div class="field"><span class="lab">Duración</span><div class="chips">${[30, 45, 60, 75, 90].map(m => chip("min", m, FS.minutes === m, m + " min")).join("")}<input type="number" id="f-min" inputmode="numeric" min="5" max="300" value="${FS.minutes}" aria-label="Minutos"></div></div>
+    <div class="field"><span class="lab">Esfuerzo <strong id="rpe-v">${FS.rpe}</strong>/10</span><input type="range" id="f-rpe" min="1" max="10" step="1" value="${FS.rpe}"><div class="row between small muted"><span>Suave</span><span>Al límite</span></div></div>
+    <div class="field"><label class="lab" for="f-note">Nota (opcional)</label><textarea id="f-note" style="min-height:70px" placeholder="Ej.: sentadilla búlgara y peso muerto; molestia leve en el hombro.">${esc(FS.note)}</textarea></div>
+    <p class="ferr" id="f-err" role="alert"></p>
+    <button class="btn primary block" id="f-save">${x ? "Guardar cambios" : "Guardar sesión"}</button>
+    ${x ? `<button class="btn block" id="f-del" style="color:var(--hot)">Eliminar sesión</button>` : ""}
+  </section>`;
+}
+function bodies() { return bodySvg("front", FS.zones, "Frente") + bodySvg("back", FS.zones, "Espalda"); }
+function wireStrength(x) {
+  const sc = $("#scontent"), err = $("#f-err");
+  const refresh = () => { $("#bodies").innerHTML = bodies(); const z = Object.entries(FS.zones).filter(([, v]) => v).sort((a, b) => b[1] - a[1]); $("#zsum").innerHTML = z.length ? z.map(([k, v]) => `<span class="tagz l${v}">${ZONES[k]}</span>`).join(" ") : `<span class="muted">Sin zonas marcadas.</span>`; };
+  const setChip = (grp, v) => sc.querySelectorAll(`[data-${grp}]`).forEach(b => b.classList.toggle("on", b.dataset[grp] === String(v)));
+  refresh();
+  const tap = g => { const k = g.dataset.z; FS.zones[k] = ((FS.zones[k] || 0) + 1) % 4; if (!FS.zones[k]) delete FS.zones[k]; refresh(); };
+  $("#bodies").onclick = e => { const g = e.target.closest("[data-z]"); if (g) tap(g); };
+  $("#bodies").onkeydown = e => { const g = e.target.closest("[data-z]"); if (g && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); tap(g); } };
+  sc.querySelectorAll("[data-preset]").forEach(b => b.onclick = () => { FS.zones = b.dataset.preset ? { ...FS.zones, ...PRESETS[b.dataset.preset] } : {}; refresh(); });
+  sc.querySelectorAll("[data-date]").forEach(b => b.onclick = () => { FS.date = b.dataset.date; $("#f-date").value = FS.date; setChip("date", FS.date); });
+  $("#f-date").onchange = e => { FS.date = e.target.value; setChip("date", FS.date); };
+  sc.querySelectorAll("[data-kind]").forEach(b => b.onclick = () => { FS.kind = b.dataset.kind; setChip("kind", FS.kind); });
+  sc.querySelectorAll("[data-min]").forEach(b => b.onclick = () => { FS.minutes = +b.dataset.min; $("#f-min").value = FS.minutes; setChip("min", FS.minutes); });
+  $("#f-min").oninput = e => { FS.minutes = Math.round(+e.target.value || 0); setChip("min", FS.minutes); err.textContent = ""; };
+  $("#f-rpe").oninput = e => { FS.rpe = +e.target.value; $("#rpe-v").textContent = FS.rpe; };
+  $("#f-note").oninput = e => { FS.note = e.target.value; };
+  $("#f-save").onclick = async () => {
+    if (!(FS.minutes >= 5 && FS.minutes <= 300)) { err.textContent = "La duración tiene que estar entre 5 y 300 minutos."; $("#f-min").focus(); return; }
+    if (!FS.date || FS.date > iso(today())) { err.textContent = "Elige un día de hoy hacia atrás."; return; }
+    const btn = $("#f-save"); btn.disabled = true; btn.textContent = "Guardando…";
+    const res = await callFn("strength", FS);
+    btn.disabled = false; btn.textContent = x ? "Guardar cambios" : "Guardar sesión";
+    if (!res.ok) { err.textContent = res.error === "red" ? "Sin conexión. Inténtalo en un momento." : "No se pudo guardar. Revisa los datos e inténtalo otra vez."; return; }
+    try { await loadAll(); } catch {}
+    toast(res.intervals ? "Guardada y enviada a intervals.icu" : "Sesión guardada");
+    $("#scontent").dataset.id = ""; history.back(); render();
+  };
+  const del = $("#f-del");
+  if (del) del.onclick = async () => {
+    if (!del.dataset.confirm) { del.dataset.confirm = "1"; del.textContent = "Toca otra vez para eliminarla"; setTimeout(() => { if (del.isConnected) { delete del.dataset.confirm; del.textContent = "Eliminar sesión"; } }, 4000); return; }
+    del.disabled = true;
+    const res = await callFn("strength_delete", { id: x.id });
+    if (!res.ok) { del.disabled = false; err.textContent = "No se pudo eliminar. Inténtalo otra vez."; return; }
+    S.strength = (S.strength || []).filter(y => y.id !== x.id); saveCache();
+    toast("Sesión eliminada"); $("#scontent").dataset.id = ""; history.back(); render();
+  };
 }
 
 /* ---------- Feedback y análisis ---------- */

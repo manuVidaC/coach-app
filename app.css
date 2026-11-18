@@ -133,3 +133,27 @@ textarea:focus{outline:2px solid var(--pine);outline-offset:1px}
 .switch::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s}
 .switch.on{background:var(--pine)}.switch.on::after{transform:translateX(20px)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* Fuerza */
+:root{--z0:#c3cfc8;--z1:#b5e0c8;--z2:#4fae80;--z3:#1f6b52;--bodybase:#e9eeeb;--strc:#5b4bb0;--strc-soft:#e9e6fb}
+@media (prefers-color-scheme:dark){:root{--z0:#34433d;--z1:#2c5a45;--z2:#3d9a6d;--z3:#86dcaf;--bodybase:#222d29;--strc:#b2a8f2;--strc-soft:#2b2747}}
+.pill.str{background:var(--strc-soft);color:var(--strc)}
+.bodies{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.body{margin:0;display:flex;flex-direction:column;align-items:center;gap:4px}
+.body svg{width:100%;max-width:190px;height:auto;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+.body figcaption{font-size:12px;color:var(--muted)}
+.body .base{fill:var(--bodybase);pointer-events:none}
+.zone{cursor:pointer;transition:fill .15s;stroke:var(--card);stroke-width:2}
+.zone.l0{fill:var(--z0)}.zone.l1{fill:var(--z1)}.zone.l2{fill:var(--z2)}.zone.l3{fill:var(--z3)}
+.zone:focus-visible{outline:none;stroke:var(--fg);stroke-width:2}
+.legend.lv i{width:12px;height:12px;border-radius:3px}.legend.lv .l1{background:var(--z1)}.legend.lv .l2{background:var(--z2)}.legend.lv .l3{background:var(--z3)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:99px;padding:8px 14px;font-size:14px;min-height:38px}
+.chip.on{background:var(--pine);border-color:var(--pine);color:#fff}
+.chip.ghost{color:var(--muted)}
+.field{display:flex;flex-direction:column;gap:8px}.field .lab{font-size:13px;color:var(--muted)}
+.field input[type=number],.field input[type=date]{font:inherit;font-size:15px;border:1px solid var(--line);border-radius:10px;padding:7px 10px;background:var(--bg);color:var(--fg);min-height:38px}
+.field input[type=number]{width:84px}
+input[type=range]{width:100%;accent-color:var(--pine)}
+.tagz{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;margin:2px 2px 0 0}
+.tagz.l1{background:var(--z1);color:var(--fg)}.tagz.l2{background:var(--z2);color:var(--card)}.tagz.l3{background:var(--z3);color:var(--card)}
