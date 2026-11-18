@@ -157,3 +157,7 @@ textarea:focus{outline:2px solid var(--pine);outline-offset:1px}
 input[type=range]{width:100%;accent-color:var(--pine)}
 .tagz{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;margin:2px 2px 0 0}
 .tagz.l1{background:var(--z1);color:var(--fg)}.tagz.l2{background:var(--z2);color:var(--card)}.tagz.l3{background:var(--z3);color:var(--card)}
+
+ol.steps-l{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+ol.steps-l li{display:grid;grid-template-columns:26px 1fr;gap:10px;align-items:start;font-size:15px}
+ol.steps-l .n{width:26px;height:26px;border-radius:50%;background:var(--pine-soft);color:var(--pine);display:grid;place-items:center;font-family:var(--display);font-weight:600}

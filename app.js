@@ -4,7 +4,7 @@ const SUPA_URL = "https://iglbakcgsahqmoepkoyc.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGJha2Nnc2FocW1vZXBrb3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5Mjc0NzAsImV4cCI6MjExMDUwMzQ3MH0.XENiPTNHvEWkva0agvbGRHrbmGGKt40dEQ8ZTgNMWz4";
 const VAPID = "BJJQBXNoM0RiUnLaiZx4BxfKxSCGfNpkIIH_PTa-48WnvwrwTADD_mzZ1dJOuUkXvBCDKbndtNUaIZKFNEfvPDA";
 const FN = SUPA_URL + "/functions/v1/coach";
-const VERSION = "1.1.0";
+const VERSION = "1.2.0";
 
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: "coach-auth" } });
 const $ = (s, e = document) => e.querySelector(s);
@@ -212,7 +212,7 @@ function weekView() {
     ${coach ? `<div class="advice"><p class="eyebrow">Del coach</p><p>${md(coach)}</p></div>` : ""}
     ${adv.map(a => `<div class="advice ${a.warn ? "warn" : ""}"><p>${md(a.t)}</p></div>`).join("") || `<p class="muted">Vas bien. Sigue con el plan.</p>`}
   </section>
-  ${planCard(true)}
+  ${planCard(true) || `<section class="card"><h3>Próxima sesión</h3><p class="muted">¿Tienes salida a la vista? Cuéntasela al coach y te dice cómo afrontarla.</p><button class="btn" data-tab="plan">Preguntar al coach</button></section>`}
   <section class="card"><h3>Carga por semana</h3>
     <div class="weeks" role="img" aria-label="Carga de las últimas semanas frente al objetivo de ${t.load}">
       <div class="target" style="bottom:${t.load / mx * 96 + 18}px"></div>
@@ -223,14 +223,47 @@ function weekView() {
 }
 function planCard(compact) {
   const p = S.plan;
-  if (!p || !p.tipo || pd(p.date) < today()) return compact ? "" : `<div class="empty">No hay sesión propuesta. Cuéntale al coach tu próxima salida y te la prepara.</div>`;
+  if (!p || !p.tipo || pd(p.date) < today()) return compact ? "" : `<div class="empty">No hay sesión propuesta. Cuéntale al coach tu próxima salida aquí abajo y te la prepara.</div>`;
   const lab = k => { const s = k.replace(/_w$/, " (W)").replace(/_/g, " ").replace(/^if max$/, "IF máximo"); return s.charAt(0).toUpperCase() + s.slice(1); };
   const items = Object.entries(p.objetivos || {}).map(([k, v]) => `<li><strong>${esc(lab(k))}:</strong> ${esc(v)}</li>`).join("");
-  const d = pd(p.date);
-  return `<section class="card"><div class="row between"><h3>Próxima sesión</h3><span class="muted small">${DAYS[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}</span></div>
+  const d = pd(p.date), when = iso(d) === iso(today()) ? "Hoy" : (d - today()) / 864e5 === 1 ? "Mañana" : `${DAYS[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`;
+  const pasos = (p.pasos || []).map((x, i) => `<li><span class="n">${i + 1}</span><span>${md(x)}</span></li>`).join("");
+  if (compact) return `<section class="card"><div class="row between"><h3>Próxima sesión</h3><span class="muted small">${when}</span></div>
+    <p><strong>${esc(p.tipo)}</strong>${p.duracion ? ` · ${esc(p.duracion)}` : ""}</p>${p.resumen ? `<p class="muted">${md(p.resumen)}</p>` : ""}
+    <button class="link" style="color:var(--pine);text-align:left" data-tab="plan">Ver el plan paso a paso ›</button></section>`;
+  return `<section class="card"><div class="row between"><h3>Próxima sesión</h3><span class="muted small">${when}</span></div>
     <p><strong>${esc(p.tipo)}</strong>${p.duracion ? ` · ${esc(p.duracion)}` : ""}</p>
-    ${!compact && p.texto ? `<p class="muted">${esc(p.texto)}</p>` : ""}${items && !compact ? `<ul class="ins">${items}</ul>` : ""}
-    ${compact ? `<button class="link" style="color:var(--pine);text-align:left" data-tab="plan">Ver el detalle ›</button>` : ""}</section>`;
+    ${p.resumen ? `<p>${md(p.resumen)}</p>` : ""}${p.texto ? `<p class="muted">${esc(p.texto)}</p>` : ""}
+    ${pasos ? `<ol class="steps-l">${pasos}</ol>` : ""}${items ? `<ul class="ins">${items}</ul>` : ""}
+    ${p.alargar ? `<div class="advice"><p class="eyebrow">¿Alargar?</p><p>${md(p.alargar)}</p></div>` : ""}
+    ${p.si_no_estas_fresco ? `<div class="advice warn"><p class="eyebrow">Si no llegas fresco</p><p>${md(p.si_no_estas_fresco)}</p></div>` : ""}
+    ${p.semana ? `<div class="advice"><p class="eyebrow">Tu semana</p><p>${md(p.semana)}</p></div>` : ""}
+    ${p.pregunta ? `<p class="small muted"><strong>Lo que le dijiste:</strong> ${esc(p.pregunta)}</p>` : ""}</section>`;
+}
+function askCard() {
+  return `<section class="card" id="ask"><h3>Pregúntale al coach</h3>
+    <p class="muted small">Pega el mensaje de la grupeta o cuéntale qué tienes previsto, y te dice cómo afrontarlo.</p>
+    <textarea id="ask-text" placeholder="Ej.: mañana grupeta 9:30, Assuán-Trassierra-Artafi, 2 h 800+ en Z2. ¿Aprieto? ¿Alargo?"></textarea>
+    <button class="btn primary" id="ask-send">Preguntar</button>
+    <p class="ferr" id="ask-err" role="alert"></p><div id="ask-live" aria-live="polite"></div></section>`;
+}
+function wireAsk() {
+  const ta = $("#ask-text"), btn = $("#ask-send"), err = $("#ask-err"), live = $("#ask-live");
+  if (!ta) return;
+  ta.value = store.get("coach-ask-draft", "");
+  ta.oninput = () => { err.textContent = ""; store.set("coach-ask-draft", ta.value); };
+  btn.onclick = async () => {
+    const text = ta.value.trim();
+    if (text.length < 5) { err.textContent = "Cuéntale al coach qué tienes previsto."; ta.focus(); return; }
+    ta.blur(); btn.disabled = true; wireAsk.busy = true;
+    live.innerHTML = `<div class="thinking"><i></i><i></i><i></i><span>El coach está preparando tu salida…</span></div>`;
+    const res = await callFn("ask", { text });
+    btn.disabled = false; wireAsk.busy = false; live.innerHTML = "";
+    if (!res.ok) { err.textContent = { no_autorizado: "Tu cuenta aún no está activada.", red: "Sin conexión. Tu texto sigue guardado." }[res.error] || `No se pudo preparar ahora (${res.error || "error"}). Inténtalo otra vez.`; return; }
+    store.del("coach-ask-draft"); S.plan = res.plan; saveCache();
+    if (tab !== "plan") go("plan"); else { render(); $("#scroll").scrollTo({ top: 0, behavior: "smooth" }); }
+    toast("Plan listo");
+  };
 }
 function ridesView() {
   const pend = S.rides.filter(r => r.status !== "analizada").length;
@@ -245,7 +278,7 @@ function ridesView() {
   ${items.length ? `<div class="list">${items.map(row).join("")}</div>` : `<div class="empty">Aún no hay salidas. Sincroniza una desde el Karoo y tira hacia abajo para buscarla.</div>`}`;
 }
 function planView() {
-  return `<header><p class="eyebrow">Lo que te propone el coach</p><h1>Plan</h1></header>${planCard(false)}
+  return `<header><p class="eyebrow">Lo que te propone el coach</p><h1>Plan</h1></header>${planCard(false)}${askCard()}
   <section class="card"><h3>Objetivo semanal</h3><ul class="ins">
     <li>${nf(target().load)} de carga a la semana.</li><li>${target().rides} salidas (mínimo ${target().min_rides}).</li>
     <li>Una tirada larga: ${dec(target().long_min_h, 1)} h o ${nf(target().long_min_kj)} kJ.</li><li>Una sesión de calidad: IF de ${dec(target().quality_if)} o más.</li></ul>
@@ -381,7 +414,10 @@ function renderSheet() {
 function render() {
   if (!$("#content")) return;
   const views = { semana: weekView, salidas: ridesView, plan: planView };
+  const ae = document.activeElement;
+  if ((ae && ae.id === "ask-text") || wireAsk.busy) { if (location.hash) renderSheet(); return; }
   $("#content").innerHTML = (views[tab] || weekView)();
+  wireAsk();
   $("#tt").textContent = { semana: "Tu semana", salidas: "Salidas", plan: "Plan" }[tab];
   document.querySelectorAll(".tab").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
   const pend = S.rides.filter(r => r.status !== "analizada").length, bd = $("#badge");
