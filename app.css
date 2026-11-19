@@ -16,7 +16,7 @@
   color-scheme:dark}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.5;overscroll-behavior:none;-webkit-text-size-adjust:100%}
-body{position:fixed;top:0;left:0;right:0;height:100vh;height:var(--app-h,100vh);overflow:hidden}
+body{position:fixed;inset:0;overflow:hidden}
 #root{height:100%;position:relative}
 h1,h2,h3{font-family:var(--display);font-weight:600;margin:0;letter-spacing:.01em;line-height:1.05;text-wrap:balance}
 h1{font-size:34px}h2{font-size:23px}h3{font-size:19px}

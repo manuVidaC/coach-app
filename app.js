@@ -4,7 +4,7 @@ const SUPA_URL = "https://iglbakcgsahqmoepkoyc.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGJha2Nnc2FocW1vZXBrb3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5Mjc0NzAsImV4cCI6MjExMDUwMzQ3MH0.XENiPTNHvEWkva0agvbGRHrbmGGKt40dEQ8ZTgNMWz4";
 const VAPID = "BJJQBXNoM0RiUnLaiZx4BxfKxSCGfNpkIIH_PTa-48WnvwrwTADD_mzZ1dJOuUkXvBCDKbndtNUaIZKFNEfvPDA";
 const FN = SUPA_URL + "/functions/v1/coach";
-const VERSION = "1.6.7";
+const VERSION = "1.6.8";
 
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: "coach-auth" } });
 const $ = (s, e = document) => e.querySelector(s);
@@ -1039,15 +1039,6 @@ async function enter() {
   if (S.profile && !S.profile.intervals_connected && !later) { showConnect(); return; }
   render(); subscribe(); consumeNav(); markSeen();
 }
-// iPhone, app instalada con barra de estado translúcida: la ventana mide la pantalla menos la barra de estado
-// y deja un hueco negro abajo. Se estira a la altura real de la pantalla.
-function fixHeight() {
-  if (!standalone) return;
-  const portrait = innerHeight > innerWidth, full = portrait ? screen.height : screen.width;
-  if (full > innerHeight && full - innerHeight < 80) document.documentElement.style.setProperty("--app-h", full + "px");
-  else document.documentElement.style.removeProperty("--app-h");
-}
-fixHeight(); addEventListener("resize", fixHeight); addEventListener("orientationchange", () => setTimeout(fixHeight, 300));
 let entered = false;
 // Al abrir desde un aviso: ir a la salida y bajar hasta "Cuéntame qué tal".
 let goFb = /^#r-/.test(location.hash) ? location.hash.slice(3) : null;
