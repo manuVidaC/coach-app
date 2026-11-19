@@ -6,7 +6,7 @@
   --pine:#1f6b52;--pine-soft:#dcebe3;--mint:#9fe0b8;--hot:#c4572a;--hot-soft:#f6e2d8;--sun:#9a6a0e;--sun-soft:#f5ead2;
   --bar:rgba(255,255,255,.86);
   --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;--body:"Inter",-apple-system,system-ui,sans-serif;
-  --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);
+  --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);--tbb:max(calc(var(--sb) - 14px),6px);
   --sl:max(16px,env(safe-area-inset-left,0px));--sr:max(16px,env(safe-area-inset-right,0px));
   color-scheme:light;
 }
@@ -64,11 +64,11 @@ a{color:var(--pine)}
 .iconbtn{width:44px;height:44px;border:0;background:none;display:grid;place-items:center;border-radius:50%;color:var(--pine)}
 .avatar{width:32px;height:32px;border-radius:50%;background:var(--club);color:#fff;display:grid;place-items:center;font-family:var(--display);font-size:16px}
 .scroll{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;
-  padding:calc(var(--st) + 52px) var(--sr) calc(var(--sb) + 84px) var(--sl)}
+  padding:calc(var(--st) + 52px) var(--sr) calc(var(--tbb) + 74px) var(--sl)}
 .content{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
-.tabbar{position:absolute;left:0;right:0;bottom:0;z-index:5;height:calc(var(--sb) + 56px);padding:0 var(--sr) var(--sb) var(--sl);display:grid;grid-template-columns:repeat(4,1fr);
+.tabbar{position:absolute;left:0;right:0;bottom:0;z-index:5;height:calc(var(--tbb) + 50px);padding:0 var(--sr) var(--tbb) var(--sl);display:grid;grid-template-columns:repeat(4,1fr);
   background:var(--bar);-webkit-backdrop-filter:saturate(1.6) blur(18px);backdrop-filter:saturate(1.6) blur(18px);border-top:.5px solid var(--line)}
-.tab{border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;color:var(--faint);position:relative}
+.tab{border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:7px;gap:2px;font-size:11px;color:var(--faint);position:relative}
 .tab.on{color:var(--pine)}
 .tab .dot{position:absolute;top:6px;left:calc(50% + 8px);min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--hot);color:#fff;font-size:10px;line-height:16px;font-weight:600}
 

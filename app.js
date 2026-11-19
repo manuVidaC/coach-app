@@ -4,7 +4,7 @@ const SUPA_URL = "https://iglbakcgsahqmoepkoyc.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGJha2Nnc2FocW1vZXBrb3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5Mjc0NzAsImV4cCI6MjExMDUwMzQ3MH0.XENiPTNHvEWkva0agvbGRHrbmGGKt40dEQ8ZTgNMWz4";
 const VAPID = "BJJQBXNoM0RiUnLaiZx4BxfKxSCGfNpkIIH_PTa-48WnvwrwTADD_mzZ1dJOuUkXvBCDKbndtNUaIZKFNEfvPDA";
 const FN = SUPA_URL + "/functions/v1/coach";
-const VERSION = "1.6.5";
+const VERSION = "1.6.6";
 
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: "coach-auth" } });
 const $ = (s, e = document) => e.querySelector(s);
