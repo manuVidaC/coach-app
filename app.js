@@ -4,7 +4,7 @@ const SUPA_URL = "https://iglbakcgsahqmoepkoyc.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGJha2Nnc2FocW1vZXBrb3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5Mjc0NzAsImV4cCI6MjExMDUwMzQ3MH0.XENiPTNHvEWkva0agvbGRHrbmGGKt40dEQ8ZTgNMWz4";
 const VAPID = "BJJQBXNoM0RiUnLaiZx4BxfKxSCGfNpkIIH_PTa-48WnvwrwTADD_mzZ1dJOuUkXvBCDKbndtNUaIZKFNEfvPDA";
 const FN = SUPA_URL + "/functions/v1/coach";
-const VERSION = "1.4.3";
+const VERSION = "1.5.0";
 
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: "coach-auth" } });
 const $ = (s, e = document) => e.querySelector(s);
@@ -40,8 +40,59 @@ const ICON = {
 };
 
 /* ---------- Puerta: instalación y acceso ---------- */
+
+/* ---------- Fondo de entrada con la foto del club ----------
+   La primera vez: foto con escudo y lema; el lema se desvanece, el escudo sube y se hace pequeño,
+   la cámara se acerca a la grupeta y aparece el contenido. Las siguientes veces, directamente el final. */
+const HERO = { ar: 1100 / 2311, logo: { x: 372 / 1193, y: 175 / 2506, w: 450 / 1193 }, riders: 0.718, zoom: 1.35 };
+function heroHTML() {
+  return `<div class="hero-bg" id="hero" aria-hidden="true"><img class="hb-img" id="hb-clean" src="img/bg.jpg" alt=""><img class="hb-img" id="hb-full" src="img/splash.jpg" alt=""><div class="hb-shade" id="hb-shade"></div><img class="hb-logo" id="hb-logo" src="img/shield.png" alt=""></div>`;
+}
+function heroGeom() {
+  const vw = innerWidth, vh = innerHeight, Hd = Math.max(vh, vw / HERO.ar), Wd = Hd * HERO.ar, left = (vw - Wd) / 2, top = (vh - Hd) / 2;
+  const s = HERO.zoom, ty = Math.min(0, vh * 0.34 - top - s * HERO.riders * Hd);
+  const lw = Math.min(96, vw * 0.24), st = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--st")) || 0;
+  return { Wd, Hd, left, top, end: `translateY(${ty}px) scale(${s})`,
+    logoStart: { l: left + HERO.logo.x * Wd, t: top + HERO.logo.y * Hd, w: HERO.logo.w * Wd },
+    logoEnd: { l: (vw - lw) / 2, t: Math.max(st, 20) + 18, w: lw } };
+}
+function heroPlace(g, final) {
+  for (const id of ["hb-clean", "hb-full"]) Object.assign($("#" + id).style, { width: g.Wd + "px", height: g.Hd + "px", left: g.left + "px", top: g.top + "px", transform: final ? g.end : "none" });
+  const L = final ? g.logoEnd : g.logoStart;
+  Object.assign($("#hb-logo").style, { left: L.l + "px", top: L.t + "px", width: L.w + "px" });
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function heroRun(content) {
+  const g = heroGeom(), full = $("#hb-full"), logo = $("#hb-logo"), shade = $("#hb-shade");
+  const first = !store.get("coach-splash", 0) && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const end = () => { heroPlace(heroGeom(), true); full.style.opacity = 0; logo.style.opacity = 1; shade.style.opacity = 1; content.style.opacity = 1; content.style.transform = "none"; };
+  if (!first) { end(); return; }
+  store.set("coach-splash", 1);
+  heroPlace(g, false);
+  full.style.opacity = 1; logo.style.opacity = 0; shade.style.opacity = 0; content.style.opacity = 0; content.style.transform = "translateY(24px)";
+  let skipped = false; const hero = $("#hero");
+  const skip = () => { skipped = true; hero.getAnimations({ subtree: true }).forEach(a => a.finish()); content.getAnimations().forEach(a => a.finish()); end(); };
+  root.addEventListener("pointerdown", skip, { once: true });
+  const E = "cubic-bezier(.65,0,.35,1)";
+  await Promise.all([full, $("#hb-clean")].map(el => el.animate([{ opacity: 0, transform: "scale(1.08)" }, { opacity: 1, transform: "none" }], { duration: 1400, easing: "cubic-bezier(.2,.7,.2,1)", fill: "both" }).finished)).catch(() => {});
+  if (skipped) return;
+  await sleep(1300); if (skipped) return;
+  // El escudo real tapa al de la foto; la foto pasa a la versión sin escudo ni lema.
+  logo.style.opacity = 1;
+  full.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 700, fill: "forwards" });
+  await sleep(250); if (skipped) return;
+  const a = [];
+  for (const el of [full, $("#hb-clean")]) a.push(el.animate([{ transform: "none" }, { transform: g.end }], { duration: 1700, easing: E, fill: "forwards" }));
+  a.push(logo.animate([{ left: g.logoStart.l + "px", top: g.logoStart.t + "px", width: g.logoStart.w + "px" }, { left: g.logoEnd.l + "px", top: g.logoEnd.t + "px", width: g.logoEnd.w + "px" }], { duration: 1300, easing: E, fill: "forwards" }));
+  a.push(shade.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 1200, delay: 300, fill: "forwards" }));
+  a.push(content.animate([{ opacity: 0, transform: "translateY(24px)" }, { opacity: 1, transform: "none" }], { duration: 700, delay: 1100, easing: "cubic-bezier(.2,.7,.2,1)", fill: "forwards" }));
+  await Promise.all(a.map(x => x.finished)).catch(() => {});
+  if (!skipped) { root.removeEventListener("pointerdown", skip); end(); hero.getAnimations({ subtree: true }).forEach(x => x.cancel()); content.getAnimations().forEach(x => x.cancel()); }
+}
+addEventListener("orientationchange", () => setTimeout(() => { if ($("#hero")) heroPlace(heroGeom(), true); }, 300));
+
 function showInstall() {
-  root.innerHTML = `<div class="gate hero">
+  root.innerHTML = heroHTML() + `<div class="gate hero" id="gc">
     <div><span class="beta">Beta</span><h1 style="margin-top:10px">Instala tu coach</h1><p style="margin-top:8px">Añádelo a la pantalla de inicio: se abrirá como una app, a pantalla completa y con avisos cuando termines una salida.</p></div>
     <div class="card"><ol class="steps">
       <li><span class="n">1</span><p>Pulsa <strong>Compartir</strong> ${ICON.share} en la barra de Safari.</p></li>
@@ -51,11 +102,12 @@ function showInstall() {
     <button class="link" id="skip">Seguir en el navegador</button>
   </div>`;
   $("#skip").onclick = () => { store.set("coach-skip-install", 1); showLogin(); };
+  heroRun($("#gc"));
 }
 
 function showLogin(step = "email", email = store.get("coach-email", "")) {
   if (step === "email") {
-    root.innerHTML = `<div class="gate hero">
+    root.innerHTML = heroHTML() + `<div class="gate hero" id="gc">
       <h1 class="sr">Coach Tikismikis</h1>
       <div class="row" style="gap:10px;align-items:center"><span class="beta">Beta</span><p>Tu coach: cada salida, su lectura y tu semana.</p></div>
       <form class="card" id="f" novalidate>
@@ -67,6 +119,7 @@ function showLogin(step = "email", email = store.get("coach-email", "")) {
       </form>
     </div>`;
     const f = $("#f"), inp = $("#email"), err = $("#err"), go = $("#go");
+    heroRun($("#gc"));
     inp.oninput = () => (err.textContent = "");
     f.onsubmit = async e => {
       e.preventDefault();
