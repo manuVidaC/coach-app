@@ -4,7 +4,7 @@ const SUPA_URL = "https://iglbakcgsahqmoepkoyc.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGJha2Nnc2FocW1vZXBrb3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5Mjc0NzAsImV4cCI6MjExMDUwMzQ3MH0.XENiPTNHvEWkva0agvbGRHrbmGGKt40dEQ8ZTgNMWz4";
 const VAPID = "BJJQBXNoM0RiUnLaiZx4BxfKxSCGfNpkIIH_PTa-48WnvwrwTADD_mzZ1dJOuUkXvBCDKbndtNUaIZKFNEfvPDA";
 const FN = SUPA_URL + "/functions/v1/coach";
-const VERSION = "1.6.0";
+const VERSION = "1.6.1";
 
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: "coach-auth" } });
 const $ = (s, e = document) => e.querySelector(s);
@@ -583,32 +583,30 @@ async function loadCommunity(force = false) {
   if (res.ok) { S.community = res; S.communityAt = Date.now(); if (tab === "grupeta" && !location.hash) { $("#content").innerHTML = groupView(); wireGroup(); } }
 }
 const SHARE_OPTS = [
-  ["visible", "Aparecer en la grupeta", "Tu nombre, tu foto y tu bici."],
   ["objetivo", "Tu objetivo", "Lo que quieres conseguir y tu próxima prueba."],
   ["semana", "Tu semana", "Salidas, horas y % de tu objetivo de carga."],
   ["salidas", "Tus últimas salidas", "Fecha, distancia, desnivel y tiempo."],
   ["subidas", "Tus tiempos en las subidas del club", "Para la tabla de cada subida."],
 ];
 function shareCard(full) {
-  const cur = S.community?.share || { visible: true, objetivo: true, semana: true, salidas: true, subidas: true };
+  const cur = S.community?.share || { objetivo: true, semana: true, salidas: true, subidas: true };
   return `<section class="card share" id="share-card">
-    ${full ? "" : `<h3>¿Qué quieres que vea la grupeta?</h3>`}
-    <p class="muted small">Tú eliges. Nunca se comparten tu salud, lo que le cuentas al coach ni sus análisis. Lo puedes cambiar cuando quieras en Ajustes.</p>
+    <p class="muted small">Todos los del piloto aparecéis en la grupeta con nombre, foto y bici. Tú eliges qué más se ve de ti. Nunca se comparten tu salud, lo que le cuentas al coach ni sus análisis.</p>
     ${SHARE_OPTS.map(([k, t, d]) => `<div class="rowi"><div><div>${t}</div><div class="muted small">${d}</div></div><button class="switch ${cur[k] ? "on" : ""}" data-share="${k}" aria-label="${t}"></button></div>`).join("")}
-    <button class="btn primary block" id="share-save">${full ? "Guardar" : "Guardar y entrar en la grupeta"}</button>
+    <button class="btn primary block" id="share-save">Guardar</button>
   </section>`;
 }
 function wireShare() {
   const card = $("#share-card"); if (!card) return;
   card.onclick = async e => {
     const sw = e.target.closest("[data-share]");
-    if (sw) { sw.classList.toggle("on"); if (sw.dataset.share === "visible" && !sw.classList.contains("on")) card.querySelectorAll("[data-share]").forEach(x => x.classList.remove("on")); else if (sw.classList.contains("on")) card.querySelector('[data-share="visible"]').classList.add("on"); return; }
+    if (sw) { sw.classList.toggle("on"); return; }
     if (e.target.closest("#share-save")) {
       const b = $("#share-save"), body = {}; card.querySelectorAll("[data-share]").forEach(x => (body[x.dataset.share] = x.classList.contains("on")));
       b.disabled = true; b.textContent = "Guardando…";
       const res = await callFn("share", body);
       if (!res.ok) { b.disabled = false; b.textContent = "Reintentar"; return; }
-      toast(body.visible ? "Listo: la grupeta ya te ve" : "Listo: no apareces en la grupeta");
+      toast("Guardado");
       await loadCommunity(true);
       if (location.hash === "#compartir") history.back(); else if (tab === "grupeta") { $("#content").innerHTML = groupView(); wireGroup(); }
     }
@@ -634,11 +632,11 @@ function groupView() {
   if (!c) return `<header><p class="eyebrow">Tikismikis</p><h1>Grupeta</h1></header><div class="empty">Cargando la grupeta…</div>`;
   const others = c.members.filter(m => !m.me);
   return `<header><p class="eyebrow">Tikismikis · piloto</p><h1>Grupeta</h1></header>
-  ${c.share == null ? shareCard(false) : ""}
+  ${!c.decided ? `<section class="card"><p>Apareces en la grupeta con todos tus datos visibles: objetivo, semana, salidas y subidas.</p><button class="link" data-open="compartir" style="text-align:left;color:var(--pine);margin-top:6px">Elegir qué mostrar ›</button></section>` : ""}
   ${c.members.map(memberCard).join("")}
-  ${!others.length ? `<div class="empty">Aún no hay más compañeros visibles. Cuando entren y lo acepten, aparecerán aquí.</div>` : ""}
+  ${!others.length ? `<div class="empty">Aún no hay más compañeros. Cuando entren, aparecerán aquí.</div>` : ""}
   ${c.subidas.length ? `<h2 class="sect">Subidas del club</h2>${c.subidas.map(climbCard).join("")}` : ""}
-  ${c.share != null ? `<button class="link" data-open="compartir" style="align-self:center">Elegir qué ve la grupeta</button>` : ""}`;
+  ${c.decided ? `<button class="link" data-open="compartir" style="align-self:center">Elegir qué mostrar</button>` : ""}`;
 }
 
 /* ---------- Uso del piloto (solo Manu) ---------- */
@@ -656,7 +654,7 @@ function adminView(a) {
     <div class="mhead">${avatarHTML(u.name, u.avatar, 44)}<div style="min-width:0"><p class="t">${esc(u.name || "Sin nombre")}</p><p class="m">Última vez ${ago(u.last_seen)}</p></div></div>
     <p class="eyebrow" style="margin-top:14px">Últimos 7 días</p><div class="mgrid">${n(u.opens7, "aperturas")}${n(u.analyses7, "análisis")}${n(u.asks7, "preguntas")}${n(u.refresh7, "búsquedas")}</div>
     <p class="eyebrow" style="margin-top:12px">Últimos 30 días</p><div class="mgrid">${n(u.rides30, "salidas")}${n(u.pending, "sin feedback")}${n(u.strength30, "fuerza")}${n(u.cost_month.toFixed(2).replace(".", ",") + " $", "gasto del mes")}</div>
-    <p class="muted small" style="margin-top:8px">${[u.connected ? "intervals ✓" : "sin intervals", u.push ? "avisos ✓" : "sin avisos", u.community ? "en la grupeta" : "no visible", u.import === "importando" ? "importando historial" : ""].filter(Boolean).join(" · ")}</p>
+    <p class="muted small" style="margin-top:8px">${[u.connected ? "intervals ✓" : "sin intervals", u.push ? "avisos ✓" : "sin avisos", u.hidden?.length ? "oculta: " + u.hidden.join(", ") : "muestra todo", u.import === "importando" ? "importando historial" : ""].filter(Boolean).join(" · ")}</p>
   </section>`).join("")}`;
 }
 
