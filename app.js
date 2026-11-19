@@ -4,7 +4,7 @@ const SUPA_URL = "https://iglbakcgsahqmoepkoyc.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGJha2Nnc2FocW1vZXBrb3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5Mjc0NzAsImV4cCI6MjExMDUwMzQ3MH0.XENiPTNHvEWkva0agvbGRHrbmGGKt40dEQ8ZTgNMWz4";
 const VAPID = "BJJQBXNoM0RiUnLaiZx4BxfKxSCGfNpkIIH_PTa-48WnvwrwTADD_mzZ1dJOuUkXvBCDKbndtNUaIZKFNEfvPDA";
 const FN = SUPA_URL + "/functions/v1/coach";
-const VERSION = "1.6.4";
+const VERSION = "1.6.5";
 
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: "coach-auth" } });
 const $ = (s, e = document) => e.querySelector(s);
@@ -631,7 +631,7 @@ function memberDetail(m) {
 }
 function climbCard(c) {
   return `<section class="card climb"><h3>${esc(c.name)} <span class="pill">${c.disc === "mtb" ? "MTB" : "Carretera"}</span></h3>${c.tramo ? `<p class="muted small">Se compara ${esc(c.tramo)}: es el tramo que se mide igual en todas las pasadas.</p>` : ""}
-    <ol class="rank">${c.riders.map((r, i) => `<li class="${r.me ? "me" : ""}"><span class="pos">${i + 1}</span>${avatarHTML(r.name, r.avatar, 30)}<span class="nm">${esc(r.me ? "Tú" : r.name.split(" ")[0])}</span><span class="tm"><b>${esc(r.best)}</b><span class="muted small">última ${esc(r.last)} · ${esc(dshort(r.last_date))}${r.passes ? ` · ${r.passes} vez${r.passes === 1 ? "" : "es"}` : ""}</span></span></li>`).join("")}</ol></section>`;
+    <ol class="rank">${c.riders.map((r, i) => `<li class="${r.me ? "me" : ""}"><span class="pos">${i + 1}</span>${avatarHTML(r.name, r.avatar, 30)}<span class="nm"><span class="who">${esc(r.me ? "Tú" : r.name.split(" ")[0])}</span><span class="muted small">última ${esc(r.last)} · ${esc(dshort(r.last_date))}${r.passes ? ` · ${r.passes} ${r.passes === 1 ? "vez" : "veces"}` : ""}</span></span><b class="tm">${esc(r.best)}</b></li>`).join("")}</ol></section>`;
 }
 function groupView() {
   const c = S.community;
