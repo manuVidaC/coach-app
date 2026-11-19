@@ -183,3 +183,7 @@ ol.steps-l .n{width:26px;height:26px;border-radius:50%;background:var(--pine-sof
 .iconbtn.rf.busy svg{animation:rot .9s linear infinite}
 .iconbtn.rf.cool{color:var(--faint)}
 #sact .iconbtn svg{width:22px;height:22px}
+.brand{display:flex;align-items:flex-end;gap:12px}
+.beta{font-family:var(--body);font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:99px;background:var(--mint);color:var(--club);line-height:1.4}
+.beta.sm{font-size:10px;padding:2px 7px;background:var(--sun-soft);color:var(--sun)}
+.gate .beta{background:var(--mint);color:var(--club)}

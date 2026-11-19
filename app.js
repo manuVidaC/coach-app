@@ -4,7 +4,7 @@ const SUPA_URL = "https://iglbakcgsahqmoepkoyc.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGJha2Nnc2FocW1vZXBrb3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5Mjc0NzAsImV4cCI6MjExMDUwMzQ3MH0.XENiPTNHvEWkva0agvbGRHrbmGGKt40dEQ8ZTgNMWz4";
 const VAPID = "BJJQBXNoM0RiUnLaiZx4BxfKxSCGfNpkIIH_PTa-48WnvwrwTADD_mzZ1dJOuUkXvBCDKbndtNUaIZKFNEfvPDA";
 const FN = SUPA_URL + "/functions/v1/coach";
-const VERSION = "1.4.1";
+const VERSION = "1.4.2";
 
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: "coach-auth" } });
 const $ = (s, e = document) => e.querySelector(s);
@@ -42,7 +42,7 @@ const ICON = {
 /* ---------- Puerta: instalación y acceso ---------- */
 function showInstall() {
   root.innerHTML = `<div class="gate">
-    <img class="logo" src="icons/icon-192.png" alt="">
+    <div class="brand"><img class="logo" src="icons/icon-192.png" alt=""><span class="beta">Beta</span></div>
     <div><h1>Instala tu coach</h1><p style="margin-top:8px">Añádelo a la pantalla de inicio: se abrirá como una app, a pantalla completa y con avisos cuando termines una salida.</p></div>
     <div class="card"><ol class="steps">
       <li><span class="n">1</span><p>Pulsa <strong>Compartir</strong> ${ICON.share} en la barra de Safari.</p></li>
@@ -57,7 +57,7 @@ function showInstall() {
 function showLogin(step = "email", email = store.get("coach-email", "")) {
   if (step === "email") {
     root.innerHTML = `<div class="gate">
-      <img class="logo" src="icons/icon-192.png" alt="">
+      <div class="brand"><img class="logo" src="icons/icon-192.png" alt=""><span class="beta">Beta</span></div>
       <div><h1>Coach Tikismikis</h1><p style="margin-top:8px">Tu coach de ciclismo: cada salida, su lectura y tu semana.</p></div>
       <form class="card" id="f" novalidate>
         <label for="email">Tu email</label>
@@ -83,7 +83,7 @@ function showLogin(step = "email", email = store.get("coach-email", "")) {
     return;
   }
   root.innerHTML = `<div class="gate">
-    <img class="logo" src="icons/icon-192.png" alt="">
+    <div class="brand"><img class="logo" src="icons/icon-192.png" alt=""><span class="beta">Beta</span></div>
     <div><h1>Revisa tu correo</h1><p style="margin-top:8px">Te hemos enviado un código a <strong style="color:#fff">${esc(email)}</strong>.</p></div>
     <form class="card" id="f" novalidate>
       <label for="code">Código del email</label>
@@ -157,7 +157,7 @@ function wField(x) {
 function showWelcome(i = 0, editing = false) {
   if (!W) W = Object.assign({ nombre: S.profile?.name || "" }, S.profile?.context?.answers ? fromAnswers(S.profile.context.answers) : {}, store.get("coach-ficha", {}));
   const st = WSTEPS[i], last = i === WSTEPS.length - 1;
-  const intro = i === 0 && !editing ? `<div><h1>Bienvenido al coach</h1><p style="margin-top:8px">Tres pantallas sobre ti y luego conectamos tus salidas. Te lleva dos minutos.</p></div>` : `<div><p class="eyebrow" style="color:rgba(255,255,255,.6)">Paso ${i + 1} de ${WSTEPS.length + (editing ? 0 : 1)}</p><h1>${st.t}</h1><p style="margin-top:6px">${st.sub}</p></div>`;
+  const intro = i === 0 && !editing ? `<div><span class="beta" style="margin-bottom:10px;display:inline-block">Versión beta</span><h1>Bienvenido al coach</h1><p style="margin-top:8px">Tres pantallas sobre ti y luego conectamos tus salidas. Te lleva dos minutos.</p></div>` : `<div><p class="eyebrow" style="color:rgba(255,255,255,.6)">Paso ${i + 1} de ${WSTEPS.length + (editing ? 0 : 1)}</p><h1>${st.t}</h1><p style="margin-top:6px">${st.sub}</p></div>`;
   root.innerHTML = `<div class="gate wel">
     <div class="dots">${[...WSTEPS, ...(editing ? [] : [0])].map((_, j) => `<i class="${j <= i ? "on" : ""}"></i>`).join("")}</div>
     ${intro}
@@ -507,7 +507,7 @@ function settingsView() {
     <div class="rowi"><span>Avisos tras cada salida</span>${perm === "unsupported" || !standalone ? `<span class="muted small">${standalone ? "No disponibles" : "Instala la app para activarlos"}</span>` : `<button class="switch ${perm === "granted" && store.get("coach-push", 0) ? "on" : ""}" id="push-toggle" aria-label="Avisos"></button>`}</div>
     <div class="rowi"><span>intervals.icu</span>${S.profile?.intervals_connected ? `<span class="muted small">Conectado${S.profile.import_status === "importando" ? " · importando" : ""}</span>` : `<button class="btn" id="icu-connect" style="min-height:36px;padding:6px 12px">Conectar</button>`}</div>
     <div class="rowi"><span>Tu ficha</span><button class="btn" id="edit-profile" style="min-height:36px;padding:6px 12px">Editar</button></div>
-    <div class="rowi"><span>Versión</span><span class="muted small">${VERSION}</span></div>
+    <div class="rowi"><span>Versión</span><span class="muted small">${VERSION} <span class="beta sm">Beta</span></span></div>
   </section>
   <button class="btn block" id="logout" style="color:var(--hot)">Cerrar sesión</button>`;
 }
@@ -515,7 +515,7 @@ function settingsView() {
 /* ---------- Shell, navegación y gestos ---------- */
 function shell() {
   root.innerHTML = `<div class="app">
-    <div class="topbar" id="topbar"><button class="iconbtn rf" id="rf" aria-label="Buscar salidas nuevas">${ICON.refresh}</button><span class="t" id="tt"></span><button class="iconbtn" id="me" aria-label="Ajustes"><span class="avatar">${esc((S.profile?.name || session.user.email || "?")[0].toUpperCase())}</span></button></div>
+    <div class="topbar" id="topbar"><span class="row" style="gap:2px;align-items:center"><button class="iconbtn rf" id="rf" aria-label="Buscar salidas nuevas">${ICON.refresh}</button><span class="beta sm">Beta</span></span><span class="t" id="tt"></span><button class="iconbtn" id="me" aria-label="Ajustes"><span class="avatar">${esc((S.profile?.name || session.user.email || "?")[0].toUpperCase())}</span></button></div>
     <main class="scroll" id="scroll"><div class="content" id="content"></div></main>
     <nav class="tabbar" id="tabbar">
       <button class="tab" data-tab="semana">${ICON.semana}<span>Semana</span></button>
@@ -833,7 +833,7 @@ async function rideImage(r) {
     x.fillStyle = "rgba(255,255,255,.9)"; x.font = `400 32px ${BODY}`;
     for (const l of wrapLines(x, txt, W - 2 * P, Math.max(1, Math.floor((H - 130 - y) / 46)))) { x.fillText(l, P, y); y += 46; }
   }
-  x.fillStyle = "rgba(255,255,255,.45)"; x.font = `400 24px ${BODY}`; x.fillText("Tikismikis MTB & Road · Córdoba", P, H - P + 20);
+  x.fillStyle = "rgba(255,255,255,.45)"; x.font = `400 24px ${BODY}`; x.fillText("Tikismikis MTB & Road · Córdoba · Coach en beta", P, H - P + 20);
   return await new Promise(res => c.toBlob(res, "image/png"));
 }
 
