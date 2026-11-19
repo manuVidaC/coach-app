@@ -4,7 +4,7 @@ const SUPA_URL = "https://iglbakcgsahqmoepkoyc.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGJha2Nnc2FocW1vZXBrb3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5Mjc0NzAsImV4cCI6MjExMDUwMzQ3MH0.XENiPTNHvEWkva0agvbGRHrbmGGKt40dEQ8ZTgNMWz4";
 const VAPID = "BJJQBXNoM0RiUnLaiZx4BxfKxSCGfNpkIIH_PTa-48WnvwrwTADD_mzZ1dJOuUkXvBCDKbndtNUaIZKFNEfvPDA";
 const FN = SUPA_URL + "/functions/v1/coach";
-const VERSION = "1.5.0";
+const VERSION = "1.6.0";
 
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: "coach-auth" } });
 const $ = (s, e = document) => e.querySelector(s);
@@ -30,6 +30,7 @@ let session = null, tab = store.get("coach-tab", "semana"), channel = null;
 const ICON = {
   semana: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><rect x="5" y="11" width="3" height="7" rx="1"/><rect x="10.5" y="7" width="3" height="11" rx="1"/><rect x="16" y="4" width="3" height="14" rx="1"/></svg>',
   salidas: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-7h5l3 7M10 9l-1.5-3H6M15 9l-2 7"/></svg>',
+  grupeta: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 19.5c.6-3.2 3-5 6-5s5.4 1.8 6 5"/><circle cx="17" cy="9" r="2.6"/><path d="M16.5 14.6c2.4.2 4 1.7 4.5 4.4"/></svg>',
   plan: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16M9 14l2 2 4-4"/></svg>',
   share: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>',
   plus: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M12 8v8M8 12h8"/></svg>',
@@ -354,7 +355,8 @@ function subscribe() {
 async function callFn(action, body) {
   const { data } = await sb.auth.getSession();
   const tok = data.session?.access_token;
-  const r = await fetch(`${FN}?a=${action}`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + tok, apikey: SUPA_KEY }, body: JSON.stringify(body || {}) });
+  const base = ["community", "share", "admin", "seen"].includes(action) ? SUPA_URL + "/functions/v1/social" : FN;
+  const r = await fetch(`${base}?a=${action}`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + tok, apikey: SUPA_KEY }, body: JSON.stringify(body || {}) });
   const j = await r.json().catch(() => ({ ok: false, error: "red" }));
   return j;
 }
@@ -558,19 +560,115 @@ function settingsView() {
     <div class="rowi"><span>Avisos tras cada salida</span>${perm === "unsupported" || !standalone ? `<span class="muted small">${standalone ? "No disponibles" : "Instala la app para activarlos"}</span>` : `<button class="switch ${perm === "granted" && store.get("coach-push", 0) ? "on" : ""}" id="push-toggle" aria-label="Avisos"></button>`}</div>
     <div class="rowi"><span>intervals.icu</span>${S.profile?.intervals_connected ? `<span class="muted small">Conectado${S.profile.import_status === "importando" ? " · importando" : ""}</span>` : `<button class="btn" id="icu-connect" style="min-height:36px;padding:6px 12px">Conectar</button>`}</div>
     <div class="rowi"><span>Tu ficha</span><button class="btn" id="edit-profile" style="min-height:36px;padding:6px 12px">Editar</button></div>
+    <div class="rowi"><span>Qué ve la grupeta</span><button class="btn" data-open="compartir" style="min-height:36px;padding:6px 12px">Elegir</button></div>
+    ${S.profile?.athlete_key === "manu" ? `<div class="rowi"><span>Uso del piloto</span><button class="btn" data-open="uso" style="min-height:36px;padding:6px 12px">Ver</button></div>` : ""}
     <div class="rowi"><span>Versión</span><span class="muted small">${VERSION} <span class="beta sm">Beta</span></span></div>
   </section>
   <button class="btn block" id="logout" style="color:var(--hot)">Cerrar sesión</button>`;
 }
 
+
+/* ---------- Grupeta: comunidad del piloto ---------- */
+function avatarHTML(name, url, size = 40) {
+  const ini = esc(String(name || "?").trim()[0]?.toUpperCase() || "?");
+  return `<span class="avatar" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.45)}px">${url ? `<img src="${esc(url)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}<span>${ini}</span></span>`;
+}
+function markSeen() { if (Date.now() - store.get("coach-seen", 0) > 30 * 60e3) { store.set("coach-seen", Date.now()); callFn("seen"); } }
+let commBusy = false;
+async function loadCommunity(force = false) {
+  if (commBusy || (!force && S.community && Date.now() - (S.communityAt || 0) < 120e3)) return;
+  commBusy = true;
+  const res = await callFn("community");
+  commBusy = false;
+  if (res.ok) { S.community = res; S.communityAt = Date.now(); if (tab === "grupeta" && !location.hash) { $("#content").innerHTML = groupView(); wireGroup(); } }
+}
+const SHARE_OPTS = [
+  ["visible", "Aparecer en la grupeta", "Tu nombre, tu foto y tu bici."],
+  ["objetivo", "Tu objetivo", "Lo que quieres conseguir y tu próxima prueba."],
+  ["semana", "Tu semana", "Salidas, horas y % de tu objetivo de carga."],
+  ["salidas", "Tus últimas salidas", "Fecha, distancia, desnivel y tiempo."],
+  ["subidas", "Tus tiempos en las subidas del club", "Para la tabla de cada subida."],
+];
+function shareCard(full) {
+  const cur = S.community?.share || { visible: true, objetivo: true, semana: true, salidas: true, subidas: true };
+  return `<section class="card share" id="share-card">
+    ${full ? "" : `<h3>¿Qué quieres que vea la grupeta?</h3>`}
+    <p class="muted small">Tú eliges. Nunca se comparten tu salud, lo que le cuentas al coach ni sus análisis. Lo puedes cambiar cuando quieras en Ajustes.</p>
+    ${SHARE_OPTS.map(([k, t, d]) => `<div class="rowi"><div><div>${t}</div><div class="muted small">${d}</div></div><button class="switch ${cur[k] ? "on" : ""}" data-share="${k}" aria-label="${t}"></button></div>`).join("")}
+    <button class="btn primary block" id="share-save">${full ? "Guardar" : "Guardar y entrar en la grupeta"}</button>
+  </section>`;
+}
+function wireShare() {
+  const card = $("#share-card"); if (!card) return;
+  card.onclick = async e => {
+    const sw = e.target.closest("[data-share]");
+    if (sw) { sw.classList.toggle("on"); if (sw.dataset.share === "visible" && !sw.classList.contains("on")) card.querySelectorAll("[data-share]").forEach(x => x.classList.remove("on")); else if (sw.classList.contains("on")) card.querySelector('[data-share="visible"]').classList.add("on"); return; }
+    if (e.target.closest("#share-save")) {
+      const b = $("#share-save"), body = {}; card.querySelectorAll("[data-share]").forEach(x => (body[x.dataset.share] = x.classList.contains("on")));
+      b.disabled = true; b.textContent = "Guardando…";
+      const res = await callFn("share", body);
+      if (!res.ok) { b.disabled = false; b.textContent = "Reintentar"; return; }
+      toast(body.visible ? "Listo: la grupeta ya te ve" : "Listo: no apareces en la grupeta");
+      await loadCommunity(true);
+      if (location.hash === "#compartir") history.back(); else if (tab === "grupeta") { $("#content").innerHTML = groupView(); wireGroup(); }
+    }
+  };
+}
+function wireGroup() { wireShare(); }
+const dshort = d => { const x = pd(d); return `${DAYS[x.getDay()]} ${x.getDate()} ${MON[x.getMonth()]}`; };
+function memberCard(m) {
+  const w = m.semana, o = m.objetivo;
+  return `<section class="card member">
+    <div class="mhead">${avatarHTML(m.name, m.avatar, 48)}<div style="min-width:0"><p class="t">${esc(m.name)}${m.me ? ` <span class="pill ok">Tú</span>` : ""}</p>${m.bici ? `<p class="m">${esc(m.bici)}</p>` : ""}</div></div>
+    ${o && (o.texto || o.prueba) ? `<p class="obj">${o.texto ? esc(o.texto) : ""}${o.prueba ? `<span class="muted small" style="display:block;margin-top:4px">🏁 ${esc(o.prueba)}${o.fecha ? " · " + esc(dshort(o.fecha)) : ""}</span>` : ""}</p>` : ""}
+    ${w ? `<div class="mweek"><div><b>${w.salidas}</b><span>salidas</span></div><div><b>${String(w.horas).replace(".", ",")}</b><span>horas</span></div>${w.pct != null ? `<div style="flex:1"><b>${w.pct} %</b><span>de su objetivo</span><i class="bar"><i style="width:${Math.min(100, w.pct)}%"></i></i></div>` : ""}</div>` : ""}
+    ${m.salidas?.length ? `<div class="mrides">${m.salidas.map(r => `<div><span class="muted small">${esc(dshort(r.date))}</span><span class="tt">${esc(r.title || "Salida")}</span><span class="muted small">${r.km ?? "–"} km · ${r.elev ?? "–"} m</span></div>`).join("")}</div>` : ""}
+  </section>`;
+}
+function climbCard(c) {
+  return `<section class="card climb"><h3>${esc(c.name)} ${c.disc ? `<span class="pill">${c.disc === "mtb" ? "MTB" : "Carretera"}</span>` : ""}</h3>
+    <ol class="rank">${c.riders.map((r, i) => `<li class="${r.me ? "me" : ""}"><span class="pos">${i + 1}</span>${avatarHTML(r.name, r.avatar, 30)}<span class="nm">${esc(r.name.split(" ")[0])}</span><span class="tm"><b>${esc(r.best)}</b><span class="muted small">última ${esc(r.last)} · ${esc(dshort(r.last_date))}</span></span></li>`).join("")}</ol></section>`;
+}
+function groupView() {
+  const c = S.community;
+  if (!c) return `<header><p class="eyebrow">Tikismikis</p><h1>Grupeta</h1></header><div class="empty">Cargando la grupeta…</div>`;
+  const others = c.members.filter(m => !m.me);
+  return `<header><p class="eyebrow">Tikismikis · piloto</p><h1>Grupeta</h1></header>
+  ${c.share == null ? shareCard(false) : ""}
+  ${c.members.map(memberCard).join("")}
+  ${!others.length ? `<div class="empty">Aún no hay más compañeros visibles. Cuando entren y lo acepten, aparecerán aquí.</div>` : ""}
+  ${c.subidas.length ? `<h2 class="sect">Subidas del club</h2>${c.subidas.map(climbCard).join("")}` : ""}
+  ${c.share != null ? `<button class="link" data-open="compartir" style="align-self:center">Elegir qué ve la grupeta</button>` : ""}`;
+}
+
+/* ---------- Uso del piloto (solo Manu) ---------- */
+function ago(iso) {
+  if (!iso) return "nunca";
+  const m = Math.round((Date.now() - Date.parse(iso)) / 60e3);
+  if (m < 2) return "ahora"; if (m < 60) return `hace ${m} min`; const h = Math.round(m / 60); if (h < 24) return `hace ${h} h`; const d = Math.round(h / 24); return `hace ${d} día${d > 1 ? "s" : ""}`;
+}
+function adminView(a) {
+  const b = a.budget, pct = Math.min(100, Math.round((b.spent / b.max) * 100));
+  const n = (v, l) => `<div><b>${v}</b><span>${l}</span></div>`;
+  return `<header><h1>Uso del piloto</h1><p class="muted">${a.users.length} ciclistas dentro${a.pending_invites ? ` · ${a.pending_invites} invitación pendiente${a.pending_invites > 1 ? "s" : ""}` : ""}</p></header>
+  <section class="card"><h3>Presupuesto de Claude este mes</h3><p><b style="font-size:28px;font-family:var(--display)">${b.spent.toFixed(2).replace(".", ",")} $</b> <span class="muted">de ${b.max} $</span></p><i class="bar" style="margin:10px 0"><i style="width:${pct}%"></i></i><p class="muted small">${b.today} de ${b.day_max} llamadas en las últimas 24 h · estimado con precio conservador</p></section>
+  ${a.users.map(u => `<section class="card member">
+    <div class="mhead">${avatarHTML(u.name, u.avatar, 44)}<div style="min-width:0"><p class="t">${esc(u.name || "Sin nombre")}</p><p class="m">Última vez ${ago(u.last_seen)}</p></div></div>
+    <p class="eyebrow" style="margin-top:14px">Últimos 7 días</p><div class="mgrid">${n(u.opens7, "aperturas")}${n(u.analyses7, "análisis")}${n(u.asks7, "preguntas")}${n(u.refresh7, "búsquedas")}</div>
+    <p class="eyebrow" style="margin-top:12px">Últimos 30 días</p><div class="mgrid">${n(u.rides30, "salidas")}${n(u.pending, "sin feedback")}${n(u.strength30, "fuerza")}${n(u.cost_month.toFixed(2).replace(".", ",") + " $", "gasto del mes")}</div>
+    <p class="muted small" style="margin-top:8px">${[u.connected ? "intervals ✓" : "sin intervals", u.push ? "avisos ✓" : "sin avisos", u.community ? "en la grupeta" : "no visible", u.import === "importando" ? "importando historial" : ""].filter(Boolean).join(" · ")}</p>
+  </section>`).join("")}`;
+}
+
 /* ---------- Shell, navegación y gestos ---------- */
 function shell() {
   root.innerHTML = `<div class="app">
-    <div class="topbar" id="topbar"><span class="row" style="gap:2px;align-items:center"><button class="iconbtn rf" id="rf" aria-label="Buscar salidas nuevas">${ICON.refresh}</button><span class="beta sm">Beta</span></span><span class="t" id="tt"></span><button class="iconbtn" id="me" aria-label="Ajustes"><span class="avatar">${esc((S.profile?.name || session.user.email || "?")[0].toUpperCase())}</span></button></div>
+    <div class="topbar" id="topbar"><span class="row" style="gap:2px;align-items:center"><button class="iconbtn rf" id="rf" aria-label="Buscar salidas nuevas">${ICON.refresh}</button><span class="beta sm">Beta</span></span><span class="t" id="tt"></span><button class="iconbtn" id="me" aria-label="Ajustes">${avatarHTML(S.profile?.name || session.user.email, S.profile?.avatar_url, 32)}</button></div>
     <main class="scroll" id="scroll"><div class="content" id="content"></div></main>
     <nav class="tabbar" id="tabbar">
       <button class="tab" data-tab="semana">${ICON.semana}<span>Semana</span></button>
       <button class="tab" data-tab="salidas">${ICON.salidas}<span>Salidas</span><span class="dot" id="badge" hidden></span></button>
+      <button class="tab" data-tab="grupeta">${ICON.grupeta}<span>Grupeta</span></button>
       <button class="tab" data-tab="plan">${ICON.plan}<span>Plan</span></button>
     </nav>
     <div class="sheet" id="sheet"><div class="topbar scrolled"><button class="back" id="back">${ICON.chev}<span id="back-l">Salidas</span></button><span class="t" id="st"></span><span id="sact" style="width:44px;display:grid;place-items:center"></span></div><main class="scroll" id="sscroll"><div class="content" id="scontent"></div></main></div>
@@ -593,6 +691,7 @@ function onContentClick(e) {
   const f = e.target.closest("[data-strength]"); if (f) { openSheet("f-" + f.dataset.strength); return; }
   if (e.target.closest("[data-new-strength]")) { openSheet("fuerza"); return; }
   const t = e.target.closest("[data-tab]"); if (t) { go(t.dataset.tab); return; }
+  const o = e.target.closest("[data-open]"); if (o) { openSheet(o.dataset.open); return; }
   if (e.target.closest("#push-on")) enablePush();
   const cn = e.target.closest("[data-connect]"); if (cn) startConnect(cn);
 }
@@ -611,6 +710,14 @@ function renderSheet() {
     const ic = $("#icu-connect"); if (ic) ic.onclick = () => startConnect(ic);
     $("#edit-profile").onclick = () => { history.replaceState(null, "", location.pathname); if (channel) sb.removeChannel(channel); showWelcome(0, true); };
     const tg = $("#push-toggle"); if (tg) tg.onclick = async () => { if (tg.classList.contains("on")) { await disablePush(); tg.classList.remove("on"); } else if (await enablePush()) tg.classList.add("on"); };
+  } else if (h === "compartir") {
+    $("#st").textContent = "Qué ve la grupeta"; $("#back-l").textContent = "Volver";
+    if (!S.community) { sc.innerHTML = `<div class="empty">Cargando…</div>`; loadCommunity(true).then(() => location.hash === "#compartir" && renderSheet()); }
+    else { sc.innerHTML = `<header><h1>Qué ve la grupeta</h1></header>` + shareCard(true); wireShare(); }
+  } else if (h === "uso") {
+    $("#st").textContent = "Uso del piloto"; $("#back-l").textContent = "Volver";
+    sc.innerHTML = S.admin ? adminView(S.admin) : `<div class="empty">Cargando…</div>`;
+    if (!S.admin || Date.now() - S.adminAt > 60e3) callFn("admin").then(res => { if (res.ok) { S.admin = res; S.adminAt = Date.now(); if (location.hash === "#uso") sc.innerHTML = adminView(res); } });
   } else if (h === "fuerza" || h.startsWith("f-")) {
     if (sc.dataset.id === h && sh.classList.contains("on")) return; // no pisar el formulario abierto
     const x = h === "fuerza" ? null : (S.strength || []).find(y => y.id === h.slice(2));
@@ -630,12 +737,13 @@ function renderSheet() {
 }
 function render() {
   if (!$("#content")) return;
-  const views = { semana: weekView, salidas: ridesView, plan: planView };
+  const views = { semana: weekView, salidas: ridesView, grupeta: groupView, plan: planView };
   const ae = document.activeElement;
   if ((ae && ae.id === "ask-text") || wireAsk.busy) { if (location.hash) renderSheet(); return; }
   $("#content").innerHTML = (views[tab] || weekView)();
   wireAsk();
-  $("#tt").textContent = { semana: "Tu semana", salidas: "Salidas", plan: "Plan" }[tab];
+  $("#tt").textContent = { semana: "Tu semana", salidas: "Salidas", grupeta: "Grupeta", plan: "Plan" }[tab];
+  if (tab === "grupeta") { wireGroup(); loadCommunity(); }
   document.querySelectorAll(".tab").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
   const pend = S.rides.filter(r => r.status === "pendiente").length, bd = $("#badge");
   bd.hidden = !pend; bd.textContent = pend;
@@ -916,7 +1024,7 @@ async function enter() {
   if (S.profile && !S.profile.onboarded) { showWelcome(0); return; }
   const later = Date.now() - store.get("coach-connect-later", 0) < 3 * 864e5;
   if (S.profile && !S.profile.intervals_connected && !later) { showConnect(); return; }
-  render(); subscribe(); consumeNav();
+  render(); subscribe(); consumeNav(); markSeen();
 }
 let entered = false;
 // Al abrir desde un aviso: ir a la salida y bajar hasta "Cuéntame qué tal".
@@ -945,5 +1053,5 @@ sb.auth.onAuthStateChange((ev, s) => {
   if (session) { if (!entered) { entered = true; enter(); } return; }
   if (isIOS && !standalone && !store.get("coach-skip-install", 0)) showInstall(); else showLogin();
 })();
-document.addEventListener("visibilitychange", async () => { if (document.visibilityState === "visible" && session) { consumeNav(); try { await loadAll(); render(); } catch {} } });
+document.addEventListener("visibilitychange", async () => { if (document.visibilityState === "visible" && session) { consumeNav(); markSeen(); try { await loadAll(); render(); } catch {} } });
 })();
