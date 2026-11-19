@@ -1,6 +1,6 @@
 // Service worker: arranque instantáneo (shell en caché) y avisos.
-const CACHE = "coach-v1.4.2";
-const SHELL = ["./", "index.html", "app.css", "app.js", "manifest.webmanifest", "icons/icon-64.png", "icons/icon-180.png", "icons/icon-192.png", "icons/icon-512.png",
+const CACHE = "coach-v1.4.3";
+const SHELL = ["./", "index.html", "app.css", "app.js", "manifest.webmanifest", "img/welcome.jpg", "icons/icon-64.png", "icons/icon-180.png", "icons/icon-192.png", "icons/icon-512.png",
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE && k !== "coach-nav").map(k => caches.delete(k)))).then(() => self.clients.claim())); });

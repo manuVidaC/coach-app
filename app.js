@@ -4,7 +4,7 @@ const SUPA_URL = "https://iglbakcgsahqmoepkoyc.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGJha2Nnc2FocW1vZXBrb3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5Mjc0NzAsImV4cCI6MjExMDUwMzQ3MH0.XENiPTNHvEWkva0agvbGRHrbmGGKt40dEQ8ZTgNMWz4";
 const VAPID = "BJJQBXNoM0RiUnLaiZx4BxfKxSCGfNpkIIH_PTa-48WnvwrwTADD_mzZ1dJOuUkXvBCDKbndtNUaIZKFNEfvPDA";
 const FN = SUPA_URL + "/functions/v1/coach";
-const VERSION = "1.4.2";
+const VERSION = "1.4.3";
 
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: "coach-auth" } });
 const $ = (s, e = document) => e.querySelector(s);
@@ -41,9 +41,8 @@ const ICON = {
 
 /* ---------- Puerta: instalación y acceso ---------- */
 function showInstall() {
-  root.innerHTML = `<div class="gate">
-    <div class="brand"><img class="logo" src="icons/icon-192.png" alt=""><span class="beta">Beta</span></div>
-    <div><h1>Instala tu coach</h1><p style="margin-top:8px">Añádelo a la pantalla de inicio: se abrirá como una app, a pantalla completa y con avisos cuando termines una salida.</p></div>
+  root.innerHTML = `<div class="gate hero">
+    <div><span class="beta">Beta</span><h1 style="margin-top:10px">Instala tu coach</h1><p style="margin-top:8px">Añádelo a la pantalla de inicio: se abrirá como una app, a pantalla completa y con avisos cuando termines una salida.</p></div>
     <div class="card"><ol class="steps">
       <li><span class="n">1</span><p>Pulsa <strong>Compartir</strong> ${ICON.share} en la barra de Safari.</p></li>
       <li><span class="n">2</span><p>Elige <strong>Añadir a pantalla de inicio</strong> ${ICON.plus}.</p></li>
@@ -56,9 +55,9 @@ function showInstall() {
 
 function showLogin(step = "email", email = store.get("coach-email", "")) {
   if (step === "email") {
-    root.innerHTML = `<div class="gate">
-      <div class="brand"><img class="logo" src="icons/icon-192.png" alt=""><span class="beta">Beta</span></div>
-      <div><h1>Coach Tikismikis</h1><p style="margin-top:8px">Tu coach de ciclismo: cada salida, su lectura y tu semana.</p></div>
+    root.innerHTML = `<div class="gate hero">
+      <h1 class="sr">Coach Tikismikis</h1>
+      <div class="row" style="gap:10px;align-items:center"><span class="beta">Beta</span><p>Tu coach: cada salida, su lectura y tu semana.</p></div>
       <form class="card" id="f" novalidate>
         <label for="email">Tu email</label>
         <input id="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="tu@email.com" value="${esc(email)}" required>
@@ -68,7 +67,6 @@ function showLogin(step = "email", email = store.get("coach-email", "")) {
       </form>
     </div>`;
     const f = $("#f"), inp = $("#email"), err = $("#err"), go = $("#go");
-    if (!email) setTimeout(() => inp.focus(), 300);
     inp.oninput = () => (err.textContent = "");
     f.onsubmit = async e => {
       e.preventDefault();
