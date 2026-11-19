@@ -229,3 +229,16 @@ h2.sect{font-family:var(--display);font-size:22px;margin:8px 4px 0}
 .mgrid b{font-family:var(--display);font-size:20px;white-space:nowrap}
 .mgrid span{font-size:12px;color:var(--muted)}
 .share .rowi{padding:12px 0;border-bottom:1px solid var(--line);gap:12px}.share .rowi:last-of-type{border-bottom:0;margin-bottom:8px}
+/* Grupeta: lista compacta */
+.card.list{padding:4px 0}
+.mrow{display:flex;align-items:center;gap:12px;width:100%;border:0;background:none;text-align:left;padding:10px 16px;font:inherit;color:inherit}
+.mrow+.mrow{border-top:1px solid var(--line)}
+.mrow .mtxt{flex:1;min-width:0}
+.mrow .t{font-weight:600;font-size:16px}
+.mrow .m{color:var(--muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mrow .chev{color:var(--faint);font-size:22px}
+.mrow .ico{width:44px;height:44px;border-radius:50%;background:var(--line);display:grid;place-items:center;font-size:20px;flex:none}
+.mhero{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding-top:8px}
+.link.inline{display:inline;padding:0;min-height:0;color:var(--pine);font-size:inherit}
+.mrides>div b{font-family:var(--display);font-size:17px}
+.mhero h1{font-size:28px;line-height:1.15}

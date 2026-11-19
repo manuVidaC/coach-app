@@ -4,7 +4,7 @@ const SUPA_URL = "https://iglbakcgsahqmoepkoyc.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGJha2Nnc2FocW1vZXBrb3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5Mjc0NzAsImV4cCI6MjExMDUwMzQ3MH0.XENiPTNHvEWkva0agvbGRHrbmGGKt40dEQ8ZTgNMWz4";
 const VAPID = "BJJQBXNoM0RiUnLaiZx4BxfKxSCGfNpkIIH_PTa-48WnvwrwTADD_mzZ1dJOuUkXvBCDKbndtNUaIZKFNEfvPDA";
 const FN = SUPA_URL + "/functions/v1/coach";
-const VERSION = "1.6.1";
+const VERSION = "1.6.2";
 
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: "coach-auth" } });
 const $ = (s, e = document) => e.querySelector(s);
@@ -580,18 +580,17 @@ async function loadCommunity(force = false) {
   commBusy = true;
   const res = await callFn("community");
   commBusy = false;
-  if (res.ok) { S.community = res; S.communityAt = Date.now(); if (tab === "grupeta" && !location.hash) { $("#content").innerHTML = groupView(); wireGroup(); } }
+  if (res.ok) { S.community = res; S.communityAt = Date.now(); if (tab === "grupeta" && $("#content")) { $("#content").innerHTML = groupView(); wireGroup(); } if (/^#(m-|subidas)/.test(location.hash)) renderSheet(); }
 }
 const SHARE_OPTS = [
-  ["objetivo", "Tu objetivo", "Lo que quieres conseguir y tu próxima prueba."],
   ["semana", "Tu semana", "Salidas, horas y % de tu objetivo de carga."],
   ["salidas", "Tus últimas salidas", "Fecha, distancia, desnivel y tiempo."],
   ["subidas", "Tus tiempos en las subidas del club", "Para la tabla de cada subida."],
 ];
 function shareCard(full) {
-  const cur = S.community?.share || { objetivo: true, semana: true, salidas: true, subidas: true };
+  const cur = S.community?.share || { semana: true, salidas: true, subidas: true };
   return `<section class="card share" id="share-card">
-    <p class="muted small">Todos los del piloto aparecéis en la grupeta con nombre, foto y bici. Tú eliges qué más se ve de ti. Nunca se comparten tu salud, lo que le cuentas al coach ni sus análisis.</p>
+    <p class="muted small">Todos los del piloto aparecéis en la grupeta con nombre, foto y bici. Tú eliges qué más se ve de ti. Nunca se comparten tu objetivo, tu salud, lo que le cuentas al coach ni sus análisis.</p>
     ${SHARE_OPTS.map(([k, t, d]) => `<div class="rowi"><div><div>${t}</div><div class="muted small">${d}</div></div><button class="switch ${cur[k] ? "on" : ""}" data-share="${k}" aria-label="${t}"></button></div>`).join("")}
     <button class="btn primary block" id="share-save">Guardar</button>
   </section>`;
@@ -614,29 +613,37 @@ function wireShare() {
 }
 function wireGroup() { wireShare(); }
 const dshort = d => { const x = pd(d); return `${DAYS[x.getDay()]} ${x.getDate()} ${MON[x.getMonth()]}`; };
-function memberCard(m) {
-  const w = m.semana, o = m.objetivo;
-  return `<section class="card member">
-    <div class="mhead">${avatarHTML(m.name, m.avatar, 48)}<div style="min-width:0"><p class="t">${esc(m.name)}${m.me ? ` <span class="pill ok">Tú</span>` : ""}</p>${m.bici ? `<p class="m">${esc(m.bici)}</p>` : ""}</div></div>
-    ${o && (o.texto || o.prueba) ? `<p class="obj">${o.texto ? esc(o.texto) : ""}${o.prueba ? `<span class="muted small" style="display:block;margin-top:4px">🏁 ${esc(o.prueba)}${o.fecha ? " · " + esc(dshort(o.fecha)) : ""}</span>` : ""}</p>` : ""}
-    ${w ? `<div class="mweek"><div><b>${w.salidas}</b><span>salidas</span></div><div><b>${String(w.horas).replace(".", ",")}</b><span>horas</span></div>${w.pct != null ? `<div style="flex:1"><b>${w.pct} %</b><span>de su objetivo</span><i class="bar"><i style="width:${Math.min(100, w.pct)}%"></i></i></div>` : ""}</div>` : ""}
-    ${m.salidas?.length ? `<div class="mrides">${m.salidas.map(r => `<div><span class="muted small">${esc(dshort(r.date))}</span><span class="tt">${esc(r.title || "Salida")}</span><span class="muted small">${r.km ?? "–"} km · ${r.elev ?? "–"} m</span></div>`).join("")}</div>` : ""}
-  </section>`;
+function lastRide(m) {
+  const r = m.salidas?.[0];
+  return r ? `${esc(dshort(r.date))} · ${esc(r.title || "Salida")}` : m.salidas ? "Sin salidas recientes" : "Prefiere no mostrar sus salidas";
+}
+function memberRow(m) {
+  return `<button class="mrow" data-member="${esc(m.id)}">${avatarHTML(m.name, m.avatar, 44)}<div class="mtxt"><p class="t">${esc(m.me ? "Tú" : m.name)}</p><p class="m">${lastRide(m)}</p></div><span class="chev">›</span></button>`;
+}
+function memberDetail(m) {
+  const w = m.semana, c = S.community;
+  const climbs = (c?.subidas || []).map(x => { const i = x.riders.findIndex(r => r.id === m.id); return i < 0 ? null : { ...x.riders[i], name: x.name, disc: x.disc, pos: i + 1, of: x.riders.length }; }).filter(Boolean);
+  return `<header class="mhero">${avatarHTML(m.name, m.avatar, 84)}<h1>${esc(m.name)}</h1>${m.bici ? `<p class="muted">${esc(m.bici)}</p>` : ""}</header>
+  ${w ? `<section class="card"><h3>Esta semana</h3><div class="mweek"><div><b>${w.salidas}</b><span>salidas</span></div><div><b>${String(w.horas).replace(".", ",")}</b><span>horas</span></div>${w.pct != null ? `<div style="flex:1"><b>${w.pct} %</b><span>de su objetivo de carga</span><i class="bar"><i style="width:${Math.min(100, w.pct)}%"></i></i></div>` : ""}</div></section>` : ""}
+  ${m.salidas?.length ? `<section class="card"><h3>Últimas salidas</h3><div class="mrides">${m.salidas.map(r => `<div><span class="muted small">${esc(dshort(r.date))}</span><span class="tt">${esc(r.title || "Salida")}</span><span class="muted small">${r.km ?? "–"} km · ${r.elev ?? "–"} m</span></div>`).join("")}</div></section>` : ""}
+  ${climbs.length ? `<section class="card"><h3>Subidas del club</h3><div class="mrides">${climbs.map(x => `<div><span class="muted small">${x.pos}.º de ${x.of}</span><span class="tt">${esc(x.name)}${x.disc ? ` · ${x.disc === "mtb" ? "MTB" : "carretera"}` : ""}</span><span><b>${esc(x.best)}</b></span></div>`).join("")}</div><button class="link" data-open="subidas" style="margin-top:10px;color:var(--pine)">Ver las tablas completas ›</button></section>` : ""}
+  ${!w && !m.salidas && !climbs.length ? `<div class="empty">${esc(m.name.split(" ")[0])} prefiere no mostrar más datos.</div>` : ""}`;
 }
 function climbCard(c) {
   return `<section class="card climb"><h3>${esc(c.name)} ${c.disc ? `<span class="pill">${c.disc === "mtb" ? "MTB" : "Carretera"}</span>` : ""}</h3>
-    <ol class="rank">${c.riders.map((r, i) => `<li class="${r.me ? "me" : ""}"><span class="pos">${i + 1}</span>${avatarHTML(r.name, r.avatar, 30)}<span class="nm">${esc(r.name.split(" ")[0])}</span><span class="tm"><b>${esc(r.best)}</b><span class="muted small">última ${esc(r.last)} · ${esc(dshort(r.last_date))}</span></span></li>`).join("")}</ol></section>`;
+    <ol class="rank">${c.riders.map((r, i) => `<li class="${r.me ? "me" : ""}"><span class="pos">${i + 1}</span>${avatarHTML(r.name, r.avatar, 30)}<span class="nm">${esc(r.me ? "Tú" : r.name.split(" ")[0])}</span><span class="tm"><b>${esc(r.best)}</b><span class="muted small">última ${esc(r.last)} · ${esc(dshort(r.last_date))}</span></span></li>`).join("")}</ol></section>`;
 }
 function groupView() {
   const c = S.community;
   if (!c) return `<header><p class="eyebrow">Tikismikis</p><h1>Grupeta</h1></header><div class="empty">Cargando la grupeta…</div>`;
-  const others = c.members.filter(m => !m.me);
+  const me = c.members.find(m => m.me), others = c.members.filter(m => !m.me)
+    .sort((a, b) => String(b.salidas?.[0]?.date || "").localeCompare(String(a.salidas?.[0]?.date || "")));
   return `<header><p class="eyebrow">Tikismikis · piloto</p><h1>Grupeta</h1></header>
-  ${!c.decided ? `<section class="card"><p>Apareces en la grupeta con todos tus datos visibles: objetivo, semana, salidas y subidas.</p><button class="link" data-open="compartir" style="text-align:left;color:var(--pine);margin-top:6px">Elegir qué mostrar ›</button></section>` : ""}
-  ${c.members.map(memberCard).join("")}
-  ${!others.length ? `<div class="empty">Aún no hay más compañeros. Cuando entren, aparecerán aquí.</div>` : ""}
-  ${c.subidas.length ? `<h2 class="sect">Subidas del club</h2>${c.subidas.map(climbCard).join("")}` : ""}
-  ${c.decided ? `<button class="link" data-open="compartir" style="align-self:center">Elegir qué mostrar</button>` : ""}`;
+  ${me ? `<section class="card list">${memberRow(me)}</section>` : ""}
+  ${!c.decided ? `<p class="muted small" style="margin:-4px 4px 0">Se ve tu semana, tus salidas y tus subidas. <button class="link inline" data-open="compartir">Elegir qué mostrar</button></p>` : ""}
+  <h2 class="sect">${others.length} compañero${others.length === 1 ? "" : "s"}</h2>
+  ${others.length ? `<section class="card list">${others.map(memberRow).join("")}</section>` : `<div class="empty">Cuando entren más compañeros, aparecerán aquí.</div>`}
+  ${c.subidas.length ? `<section class="card list"><button class="mrow" data-open="subidas"><span class="ico">⛰</span><div class="mtxt"><p class="t">Subidas del club</p><p class="m">Tiempos de la grupeta en ${c.subidas.length} subida${c.subidas.length === 1 ? "" : "s"}</p></div><span class="chev">›</span></button></section>` : ""}`;
 }
 
 /* ---------- Uso del piloto (solo Manu) ---------- */
@@ -690,6 +697,7 @@ function onContentClick(e) {
   if (e.target.closest("[data-new-strength]")) { openSheet("fuerza"); return; }
   const t = e.target.closest("[data-tab]"); if (t) { go(t.dataset.tab); return; }
   const o = e.target.closest("[data-open]"); if (o) { openSheet(o.dataset.open); return; }
+  const mb = e.target.closest("[data-member]"); if (mb) { openSheet("m-" + mb.dataset.member); return; }
   if (e.target.closest("#push-on")) enablePush();
   const cn = e.target.closest("[data-connect]"); if (cn) startConnect(cn);
 }
@@ -712,6 +720,13 @@ function renderSheet() {
     $("#st").textContent = "Qué ve la grupeta"; $("#back-l").textContent = "Volver";
     if (!S.community) { sc.innerHTML = `<div class="empty">Cargando…</div>`; loadCommunity(true).then(() => location.hash === "#compartir" && renderSheet()); }
     else { sc.innerHTML = `<header><h1>Qué ve la grupeta</h1></header>` + shareCard(true); wireShare(); }
+  } else if (h.startsWith("m-") || h === "subidas") {
+    const m = h === "subidas" ? null : S.community?.members.find(x => x.id === h.slice(2));
+    $("#back-l").textContent = "Grupeta";
+    if (h === "subidas") { $("#st").textContent = "Subidas del club"; sc.innerHTML = `<header><h1>Subidas del club</h1><p class="muted">Mejor tiempo de cada uno y su última pasada.</p></header>` + (S.community?.subidas || []).map(climbCard).join(""); }
+    else if (!S.community) { sc.innerHTML = `<div class="empty">Cargando…</div>`; loadCommunity(true); }
+    else if (!m) sc.innerHTML = `<div class="empty">No encuentro a este compañero.</div>`;
+    else { $("#st").textContent = m.me ? "Tú" : m.name.split(" ")[0]; sc.innerHTML = memberDetail(m); }
   } else if (h === "uso") {
     $("#st").textContent = "Uso del piloto"; $("#back-l").textContent = "Volver";
     sc.innerHTML = S.admin ? adminView(S.admin) : `<div class="empty">Cargando…</div>`;
