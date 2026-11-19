@@ -4,7 +4,7 @@ const SUPA_URL = "https://iglbakcgsahqmoepkoyc.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGJha2Nnc2FocW1vZXBrb3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5Mjc0NzAsImV4cCI6MjExMDUwMzQ3MH0.XENiPTNHvEWkva0agvbGRHrbmGGKt40dEQ8ZTgNMWz4";
 const VAPID = "BJJQBXNoM0RiUnLaiZx4BxfKxSCGfNpkIIH_PTa-48WnvwrwTADD_mzZ1dJOuUkXvBCDKbndtNUaIZKFNEfvPDA";
 const FN = SUPA_URL + "/functions/v1/coach";
-const VERSION = "1.2.0";
+const VERSION = "1.4.0";
 
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: "coach-auth" } });
 const $ = (s, e = document) => e.querySelector(s);
@@ -415,7 +415,7 @@ function wireAsk() {
     live.innerHTML = `<div class="thinking"><i></i><i></i><i></i><span>El coach está preparando tu salida…</span></div>`;
     const res = await callFn("ask", { text });
     btn.disabled = false; wireAsk.busy = false; live.innerHTML = "";
-    if (!res.ok) { err.textContent = { no_autorizado: "Tu cuenta aún no está activada.", red: "Sin conexión. Tu texto sigue guardado." }[res.error] || `No se pudo preparar ahora (${res.error || "error"}). Inténtalo otra vez.`; return; }
+    if (!res.ok) { err.textContent = limitMsg(res, "preguntas") || { no_autorizado: "Tu cuenta aún no está activada.", red: "Sin conexión. Tu texto sigue guardado." }[res.error] || `No se pudo preparar ahora (${res.error || "error"}). Inténtalo otra vez.`; return; }
     store.del("coach-ask-draft"); S.plan = res.plan; saveCache();
     if (tab !== "plan") go("plan"); else { render(); $("#scroll").scrollTo({ top: 0, behavior: "smooth" }); }
     toast("Plan listo");
@@ -515,15 +515,14 @@ function settingsView() {
 /* ---------- Shell, navegación y gestos ---------- */
 function shell() {
   root.innerHTML = `<div class="app">
-    <div class="topbar" id="topbar"><span style="width:44px"></span><span class="t" id="tt"></span><button class="iconbtn" id="me" aria-label="Ajustes"><span class="avatar">${esc((S.profile?.name || session.user.email || "?")[0].toUpperCase())}</span></button></div>
-    <div class="ptr" id="ptr"><div class="spin">${ICON.refresh}</div></div>
+    <div class="topbar" id="topbar"><button class="iconbtn rf" id="rf" aria-label="Buscar salidas nuevas">${ICON.refresh}</button><span class="t" id="tt"></span><button class="iconbtn" id="me" aria-label="Ajustes"><span class="avatar">${esc((S.profile?.name || session.user.email || "?")[0].toUpperCase())}</span></button></div>
     <main class="scroll" id="scroll"><div class="content" id="content"></div></main>
     <nav class="tabbar" id="tabbar">
       <button class="tab" data-tab="semana">${ICON.semana}<span>Semana</span></button>
       <button class="tab" data-tab="salidas">${ICON.salidas}<span>Salidas</span><span class="dot" id="badge" hidden></span></button>
       <button class="tab" data-tab="plan">${ICON.plan}<span>Plan</span></button>
     </nav>
-    <div class="sheet" id="sheet"><div class="topbar scrolled"><button class="back" id="back">${ICON.chev}<span id="back-l">Salidas</span></button><span class="t" id="st"></span><span style="width:44px"></span></div><main class="scroll" id="sscroll"><div class="content" id="scontent"></div></main></div>
+    <div class="sheet" id="sheet"><div class="topbar scrolled"><button class="back" id="back">${ICON.chev}<span id="back-l">Salidas</span></button><span class="t" id="st"></span><span id="sact" style="width:44px;display:grid;place-items:center"></span></div><main class="scroll" id="sscroll"><div class="content" id="scontent"></div></main></div>
     <div class="toast" id="toast"></div>
   </div>`;
   $("#tabbar").onclick = e => { const b = e.target.closest("[data-tab]"); if (b) { if (tab === b.dataset.tab) $("#scroll").scrollTo({ top: 0, behavior: "smooth" }); go(b.dataset.tab); } };
@@ -534,7 +533,8 @@ function shell() {
   $("#sscroll").addEventListener("scroll", () => {}, { passive: true });
   $("#content").onclick = onContentClick;
   $("#scontent").onclick = onContentClick;
-  pullToRefresh(sc);
+  $("#rf").onclick = refresh;
+  rfTick();
   edgeSwipe($("#sheet"));
 }
 function onContentClick(e) {
@@ -553,6 +553,7 @@ function renderSheet() {
   const h = location.hash.slice(1);
   if (!h) { sh.classList.remove("on"); return; }
   const sc = $("#scontent");
+  $("#sact").innerHTML = "";
   if (h === "ajustes") {
     $("#st").textContent = "Ajustes"; $("#back-l").textContent = "Volver"; sc.innerHTML = settingsView();
     $("#logout").onclick = async () => { await sb.auth.signOut(); };
@@ -570,6 +571,8 @@ function renderSheet() {
     else {
       const ae = document.activeElement; if (ae && ae.id === "fb-text" && sh.classList.contains("on") && sc.dataset.id === r.id && !wireFeedback.busy) return;
       $("#st").textContent = r.title || "Salida"; $("#back-l").textContent = "Salidas"; sc.dataset.id = r.id; sc.innerHTML = detailView(r); wireFeedback(r);
+      $("#sact").innerHTML = `<button class="iconbtn" id="share" aria-label="Compartir">${ICON.share}</button>`; prepareShare(r); $("#share").onclick = () => shareRide(r);
+      if (goFb === r.id) { goFb = null; setTimeout(() => { const f = $("#fb"); const sc2 = $("#sscroll"); if (f) sc2.scrollTo({ top: f.getBoundingClientRect().top - sc2.getBoundingClientRect().top + sc2.scrollTop - 70, behavior: "smooth" }); }, 420); }
     }
   }
   if (!sh.classList.contains("on")) { $("#sscroll").scrollTop = 0; requestAnimationFrame(() => sh.classList.add("on")); }
@@ -591,35 +594,42 @@ function render() {
 let toastT;
 function toast(msg) { const t = $("#toast"); if (!t) return; t.textContent = msg; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 2600); }
 
-function pullToRefresh(sc) {
-  const ptr = $("#ptr"), spin = ptr.firstElementChild; let y0 = null, dy = 0, busy = false;
-  sc.addEventListener("touchstart", e => { if (sc.scrollTop <= 0 && !busy) { y0 = e.touches[0].clientY; dy = 0; } else y0 = null; }, { passive: true });
-  sc.addEventListener("touchmove", e => {
-    if (y0 === null) return; dy = e.touches[0].clientY - y0; if (dy <= 0) { spin.style.opacity = 0; return; }
-    const p = Math.min(1, dy / 90), off = Math.min(80, dy * 0.5);
-    spin.style.transition = "none"; spin.style.opacity = p; spin.style.transform = `translateY(${off - 40 + 12}px) rotate(${dy * 2}deg)`;
-    sc.style.transform = `translateY(${Math.min(60, dy * 0.35)}px)`;
-  }, { passive: true });
-  sc.addEventListener("touchend", async () => {
-    if (y0 === null) return; y0 = null; sc.style.transition = "transform .25s"; spin.style.transition = "transform .25s, opacity .25s";
-    if (dy > 90 && !busy) {
-      busy = true; ptr.classList.add("busy"); spin.style.transform = "translateY(26px)"; sc.style.transform = "translateY(44px)";
-      await refresh(); busy = false; ptr.classList.remove("busy");
-    }
-    sc.style.transform = ""; spin.style.opacity = 0; spin.style.transform = "translateY(-40px)"; setTimeout(() => (sc.style.transition = ""), 260);
-  });
+// Buscar salidas nuevas: botón con pausa entre búsquedas. Las salidas llegan solas cada 10 minutos.
+let rfBusy = false, rfTimer = null;
+const rfGap = () => (store.get("coach-rf-gap", 300)) * 1000;
+const rfWait = () => Math.max(0, store.get("coach-rf-at", 0) + rfGap() - Date.now());
+function rfTick() {
+  const b = $("#rf"); if (!b) return;
+  const w = rfWait();
+  b.classList.toggle("busy", rfBusy); b.classList.toggle("cool", !rfBusy && w > 0);
+  clearTimeout(rfTimer); if (w > 0) rfTimer = setTimeout(rfTick, Math.min(w, 30000) + 50);
 }
+const mins = s => { const m = Math.ceil(s / 60); return m <= 1 ? "un minuto" : m + " minutos"; };
 async function refresh() {
-  toast("Buscando salidas nuevas…");
+  if (rfBusy) return;
+  const w = rfWait();
+  if (w > 0) { toast(`Las salidas nuevas llegan solas. Podrás buscar a mano en ${mins(w / 1000)}.`); return; }
+  rfBusy = true; rfTick();
   const before = new Set(S.rides.map(r => r.id));
   const res = await callFn("refresh");
+  if (res.ok) store.set("coach-rf-at", Date.now());
+  else if (res.retry_in) store.set("coach-rf-at", Date.now() - rfGap() + res.retry_in * 1000);
   try { await loadAll(); render(); } catch {}
+  rfBusy = false; rfTick();
   const nuevas = S.rides.filter(r => !before.has(r.id)).length;
-  if (!res.ok && res.error === "no_autorizado") toast("Tu cuenta aún no está activada.");
+  if (res.error === "no_autorizado") toast("Tu cuenta aún no está activada.");
   else if (nuevas) toast(nuevas === 1 ? "Una salida nueva" : `${nuevas} salidas nuevas`);
+  else if (res.error === "espera") toast(`Acabas de buscar. Prueba en ${mins(res.retry_in)}.`);
+  else if (res.error === "limite_dia") toast("Has llegado a las búsquedas de hoy. Tus salidas seguirán llegando solas.");
   else if (!res.ok) toast("No he podido buscar ahora. Prueba en un rato.");
-  else if (res.reciente) toast("Ya lo estoy buscando: vuelve a tirar en un minuto.");
+  else if (res.reciente) toast("Ya lo estoy buscando: en unos minutos aparecerá.");
   else toast("Todo al día");
+}
+// Mensaje para los límites de uso del coach.
+function limitMsg(res, what) {
+  if (res.error === "limite_dia") return `Has llegado al máximo de ${what} de hoy (${res.max}). Mañana puedes seguir.`;
+  if (res.error === "limite_global") return "El coach está descansando: se ha llegado al uso previsto del grupo por ahora. Avisa a Manu.";
+  return null;
 }
 function edgeSwipe(sh) {
   let x0 = null, dx = 0;
@@ -758,7 +768,7 @@ function wireFeedback(r) {
     wireFeedback.busy = false; send.disabled = false;
     if (!res.ok) {
       live.innerHTML = "";
-      err.textContent = { falta_clave: "El análisis aún no está configurado. Avisa a Manu.", no_autorizado: "Tu cuenta aún no está activada.", red: "Sin conexión. Tu texto sigue guardado; inténtalo en un momento." }[res.error] || `No se pudo analizar ahora (${res.error || "error"}). Tu texto sigue guardado; inténtalo otra vez.`;
+      err.textContent = limitMsg(res, "análisis") || { falta_clave: "El análisis aún no está configurado. Avisa a Manu.", no_autorizado: "Tu cuenta aún no está activada.", red: "Sin conexión. Tu texto sigue guardado; inténtalo en un momento." }[res.error] || `No se pudo analizar ahora (${res.error || "error"}). Tu texto sigue guardado; inténtalo otra vez.`;
       return;
     }
     store.del("coach-draft-" + r.id);
@@ -767,6 +777,64 @@ function wireFeedback(r) {
     try { await loadAll(); } catch {}
     render(); renderSheet(); $("#sscroll").scrollTo({ top: 0, behavior: "smooth" });
   };
+}
+
+/* ---------- Compartir una salida (imagen) ---------- */
+let shareBlob = null;
+function prepareShare(r) { shareBlob = { id: r.id, p: rideImage(r).catch(() => null) }; }
+async function shareRide(r) {
+  if (!shareBlob || shareBlob.id !== r.id) prepareShare(r);
+  const blob = await shareBlob.p;
+  const d = pd(r.date), title = `${r.title || "Salida"} · ${d.getDate()} ${MON[d.getMonth()]}`;
+  const file = blob && new File([blob], `salida-${r.date}.png`, { type: "image/png" });
+  try {
+    if (file && navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title }); return; }
+    if (navigator.share) { await navigator.share({ title, text: shareText(r) }); return; }
+  } catch (e) { if (e && e.name === "AbortError") return; }
+  if (blob) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `salida-${r.date}.png`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+  else toast("No se pudo preparar la imagen.");
+}
+function shareText(r) {
+  const m = r.metrics || {}, d = pd(r.date);
+  return `${r.title || "Salida"} (${d.getDate()} ${MON[d.getMonth()]}): ${m.km ?? "–"} km, ${m.elev_m ?? "–"} m, ${m.moving || ""}${m.np_w ? `, ${m.np_w} W NP` : ""}.${r.analysis?.lectura ? "\n\nCoach: " + r.analysis.lectura.replace(/\*\*/g, "") : ""}`;
+}
+function wrapLines(ctx, text, maxW, maxLines) {
+  const words = String(text).replace(/\*\*/g, "").split(/\s+/), out = []; let line = "";
+  for (const w of words) { const t = line ? line + " " + w : w; if (ctx.measureText(t).width > maxW && line) { out.push(line); line = w; if (out.length === maxLines) break; } else line = t; }
+  if (out.length < maxLines && line) out.push(line);
+  if (out.length === maxLines && words.join(" ").length > out.join(" ").length + 1) { let l = out[maxLines - 1]; while (ctx.measureText(l + "…").width > maxW) l = l.replace(/\s*\S+$/, ""); out[maxLines - 1] = l + "…"; }
+  return out;
+}
+async function rideImage(r) {
+  const W = 1080, H = 1350, P = 84, m = r.metrics || {}, d = pd(r.date);
+  try { await Promise.all([document.fonts.load("600 80px 'Barlow Condensed'"), document.fonts.load("400 34px Inter"), document.fonts.load("600 34px Inter")]); } catch {}
+  const DISP = "'Barlow Condensed','Arial Narrow',sans-serif", BODY = "Inter,-apple-system,system-ui,sans-serif";
+  const c = document.createElement("canvas"); c.width = W; c.height = H; const x = c.getContext("2d");
+  const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#1d4640"); g.addColorStop(1, "#14332e"); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  // Perfil de montaña de fondo
+  x.strokeStyle = "rgba(159,224,184,.18)"; x.lineWidth = 6; x.beginPath(); x.moveTo(0, 300); [[160, 220], [300, 270], [470, 120], [620, 230], [760, 170], [900, 250], [1080, 190]].forEach(([a, b]) => x.lineTo(a, b)); x.stroke();
+  const logo = await new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = "icons/icon-192.png"; });
+  if (logo) { x.save(); x.beginPath(); x.roundRect(P, P, 92, 92, 22); x.clip(); x.drawImage(logo, P, P, 92, 92); x.restore(); }
+  x.fillStyle = "#fff"; x.font = `600 40px ${DISP}`; x.fillText("COACH TIKISMIKIS", P + 116, P + 44);
+  x.fillStyle = "rgba(255,255,255,.65)"; x.font = `400 28px ${BODY}`; x.fillText(`${DAYS[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]} ${d.getFullYear()} · ${m.discipline === "mtb" ? "MTB" : "Carretera"}`, P + 116, P + 84);
+  x.fillStyle = "#fff"; x.font = `600 96px ${DISP}`;
+  let y = 330; for (const l of wrapLines(x, r.title || "Salida", W - 2 * P, 2)) { x.fillText(l, P, y); y += 92; }
+  const stats = [[m.km != null ? m.km + " km" : null, "distancia"], [m.elev_m != null ? m.elev_m + " m" : null, "desnivel"], [m.moving || null, "en movimiento"], [m.np_w ? m.np_w + " W" : null, "potencia normalizada"], [m.if != null ? dec(m.if) : null, "intensidad (IF)"], [m.load != null ? String(m.load) : null, "carga"]].filter(s => s[0]);
+  y += 20; const cw = (W - 2 * P - 24) / 2;
+  stats.slice(0, 6).forEach((s, i) => { const cx = P + (i % 2) * (cw + 24), cy = y + Math.floor(i / 2) * 128;
+    x.fillStyle = "rgba(255,255,255,.07)"; x.beginPath(); x.roundRect(cx, cy, cw, 112, 20); x.fill();
+    x.fillStyle = "#fff"; x.font = `600 58px ${DISP}`; x.fillText(s[0], cx + 28, cy + 64); x.fillStyle = "rgba(255,255,255,.6)"; x.font = `400 26px ${BODY}`; x.fillText(s[1], cx + 28, cy + 96); });
+  y += Math.ceil(Math.min(stats.length, 6) / 2) * 128 + 34;
+  const ref = (r.climbs || []).find(c => c.median_time);
+  if (ref) { x.fillStyle = "#9fe0b8"; x.font = `600 30px ${BODY}`; x.fillText(`${ref.label}: ${ref.time}${ref.rank ? ` · ${ref.rank}.º mejor tiempo de ${ref.of}` : ""}`, P, y); y += 56; }
+  const txt = r.analysis?.lectura;
+  if (txt && y < H - 260) {
+    x.fillStyle = "#9fe0b8"; x.font = `600 24px ${BODY}`; x.fillText("LECTURA DEL COACH", P, y); y += 48;
+    x.fillStyle = "rgba(255,255,255,.9)"; x.font = `400 32px ${BODY}`;
+    for (const l of wrapLines(x, txt, W - 2 * P, Math.max(1, Math.floor((H - 130 - y) / 46)))) { x.fillText(l, P, y); y += 46; }
+  }
+  x.fillStyle = "rgba(255,255,255,.45)"; x.font = `400 24px ${BODY}`; x.fillText("Tikismikis MTB & Road · Córdoba", P, H - P + 20);
+  return await new Promise(res => c.toBlob(res, "image/png"));
 }
 
 /* ---------- Avisos ---------- */
@@ -797,9 +865,20 @@ async function enter() {
   if (S.profile && !S.profile.onboarded) { showWelcome(0); return; }
   const later = Date.now() - store.get("coach-connect-later", 0) < 3 * 864e5;
   if (S.profile && !S.profile.intervals_connected && !later) { showConnect(); return; }
-  render(); subscribe();
+  render(); subscribe(); consumeNav();
 }
 let entered = false;
+// Al abrir desde un aviso: ir a la salida y bajar hasta "Cuéntame qué tal".
+let goFb = /^#r-/.test(location.hash) ? location.hash.slice(3) : null;
+function openFromNotification(url) {
+  const h = new URL(url, location.href).hash; if (!h) return;
+  if (h.startsWith("#r-")) goFb = h.slice(3);
+  if (location.hash === h) history.replaceState({ s: h.slice(1) }, "", h); else history.pushState({ s: h.slice(1) }, "", h);
+  if ($("#sheet")) { if ($("#sheet").classList.contains("on") && $("#scontent").dataset.id === goFb) $("#scontent").dataset.id = ""; renderSheet(); }
+}
+async function consumeNav() {
+  try { const c = await caches.open("coach-nav"), m = await c.match("nav"); if (!m) return; const u = await m.text(); await c.delete("nav"); openFromNotification(u); } catch {}
+}
 const holdEnter = /[?&]state=/.test(location.search);
 sb.auth.onAuthStateChange((ev, s) => {
   session = s;
@@ -808,12 +887,12 @@ sb.auth.onAuthStateChange((ev, s) => {
 });
 (async () => {
   if ("serviceWorker" in navigator) { const had = !!navigator.serviceWorker.controller; navigator.serviceWorker.register("sw.js").catch(() => {}); let reloaded = false; navigator.serviceWorker.addEventListener("controllerchange", () => { if (had && !reloaded) { reloaded = true; location.reload(); } }); }
-  navigator.serviceWorker?.addEventListener("message", e => { if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h) { history.pushState({}, "", h); renderSheet(); } } });
+  navigator.serviceWorker?.addEventListener("message", e => { if (e.data?.type === "open" && e.data.url) openFromNotification(e.data.url); });
   if (await handleOAuthReturn()) return;
   const { data } = await sb.auth.getSession();
   session = data.session;
   if (session) { if (!entered) { entered = true; enter(); } return; }
   if (isIOS && !standalone && !store.get("coach-skip-install", 0)) showInstall(); else showLogin();
 })();
-document.addEventListener("visibilitychange", async () => { if (document.visibilityState === "visible" && session) { try { await loadAll(); render(); } catch {} } });
+document.addEventListener("visibilitychange", async () => { if (document.visibilityState === "visible" && session) { consumeNav(); try { await loadAll(); render(); } catch {} } });
 })();

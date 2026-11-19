@@ -1,9 +1,9 @@
 // Service worker: arranque instantáneo (shell en caché) y avisos.
-const CACHE = "coach-v1.3.0";
+const CACHE = "coach-v1.4.0";
 const SHELL = ["./", "index.html", "app.css", "app.js", "manifest.webmanifest", "icons/icon-64.png", "icons/icon-180.png", "icons/icon-192.png", "icons/icon-512.png",
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
-self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
+self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE && k !== "coach-nav").map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", e => {
   const u = new URL(e.request.url);
   if (e.request.method !== "GET" || u.hostname.endsWith("supabase.co")) return;
@@ -21,8 +21,9 @@ self.addEventListener("push", e => {
 self.addEventListener("notificationclick", e => {
   e.notification.close();
   const url = new URL(e.notification.data?.url || "./", self.registration.scope).href;
-  e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(cs => {
+  // La app lee este destino al abrirse o al volver a primer plano (en iPhone el mensaje directo puede perderse).
+  e.waitUntil(caches.open("coach-nav").then(c => c.put("nav", new Response(url))).then(() => self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(cs => {
     for (const c of cs) { c.postMessage({ type: "open", url }); return c.focus(); }
     return self.clients.openWindow(url);
-  }));
+  })));
 });
