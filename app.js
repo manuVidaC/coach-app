@@ -117,6 +117,161 @@ function showNoAccess() {
   $("#out").onclick = () => sb.auth.signOut();
 }
 
+/* ---------- Bienvenida, ficha y conexión con intervals.icu ---------- */
+const WSTEPS = [
+  { t: "Tú", sub: "Lo básico para que el coach te conozca.", f: [
+    { k: "nombre", l: "¿Cómo te llamas?", type: "text", ph: "Nombre", req: 1 },
+    { k: "edad", l: "Edad", type: "num", ph: "años", half: 1 },
+    { k: "peso", l: "Peso", type: "num", ph: "kg", half: 1 },
+    { k: "anos_bici", l: "¿Cuánto llevas en bici?", type: "chips", o: ["Menos de 1 año", "1-3 años", "3-10 años", "Más de 10"] },
+    { k: "lesiones", l: "Lesiones o molestias que deba tener en cuenta", type: "area", ph: "Ej.: rodilla derecha si fuerzo mucho. Déjalo vacío si nada." },
+  ] },
+  { t: "Tu bici y tus datos", sub: "Si no sabes algún dato, déjalo: el coach lo saca de tus salidas.", f: [
+    { k: "bici", l: "¿Qué bici usas más?", type: "chips", o: ["Carretera", "MTB", "Gravel", "Varias"] },
+    { k: "potenciometro", l: "¿Tienes potenciómetro?", type: "chips", o: ["Sí", "No"] },
+    { k: "ftp", l: "FTP", type: "num", ph: "W", half: 1 },
+    { k: "fcmax", l: "FC máxima", type: "num", ph: "ppm", half: 1 },
+    { k: "fuerza", l: "¿Haces fuerza?", type: "chips", o: ["No", "A veces", "1 vez/semana", "2 o más/semana"] },
+  ] },
+  { t: "Tu objetivo y tu vida", sub: "Con esto decide qué toca en cada hueco.", f: [
+    { k: "objetivo", l: "¿Qué quieres conseguir?", type: "area", ph: "Ej.: aguantar con la grupeta del sábado sin quedarme en las subidas.", req: 1 },
+    { k: "prueba", l: "¿Alguna prueba en el horizonte?", type: "text", ph: "Opcional" },
+    { k: "fecha_prueba", l: "Fecha de la prueba", type: "date" },
+    { k: "dias", l: "Días que sueles salir", type: "multi", o: ["L", "M", "X", "J", "V", "S", "D"] },
+    { k: "horas", l: "Horas a la semana, más o menos", type: "num", ph: "h" },
+    { k: "disponibilidad", l: "Tu disponibilidad", type: "chips", o: ["Fija", "Variable", "Imprevisible"] },
+    { k: "grupo", l: "¿Cómo sueles salir?", type: "chips", o: ["Solo", "En grupo", "Mitad y mitad"] },
+  ] },
+];
+let W = null;
+function wField(x) {
+  const v = W[x.k];
+  if (x.type === "chips" || x.type === "multi") {
+    const sel = x.type === "multi" ? (v || []) : [v];
+    return `<div class="field w"><span class="lab">${x.l}</span><div class="chips" data-k="${x.k}" data-multi="${x.type === "multi" ? 1 : ""}">${x.o.map(o => `<button type="button" class="chip ${sel.includes(o) ? "on" : ""}" data-v="${esc(o)}">${esc(o)}</button>`).join("")}</div></div>`;
+  }
+  if (x.type === "area") return `<label class="field w"><span class="lab">${x.l}</span><textarea data-k="${x.k}" rows="3" placeholder="${esc(x.ph || "")}">${esc(v || "")}</textarea></label>`;
+  const t = x.type === "num" ? `type="text" inputmode="decimal"` : x.type === "date" ? `type="date"` : `type="text" autocapitalize="words"`;
+  return `<label class="field w ${x.half ? "half" : ""}"><span class="lab">${x.l}</span><input ${t} data-k="${x.k}" value="${esc(v ?? "")}" placeholder="${esc(x.ph || "")}"></label>`;
+}
+function showWelcome(i = 0, editing = false) {
+  if (!W) W = Object.assign({ nombre: S.profile?.name || "" }, S.profile?.context?.answers ? fromAnswers(S.profile.context.answers) : {}, store.get("coach-ficha", {}));
+  const st = WSTEPS[i], last = i === WSTEPS.length - 1;
+  const intro = i === 0 && !editing ? `<div><h1>Bienvenido al coach</h1><p style="margin-top:8px">Tres pantallas sobre ti y luego conectamos tus salidas. Te lleva dos minutos.</p></div>` : `<div><p class="eyebrow" style="color:rgba(255,255,255,.6)">Paso ${i + 1} de ${WSTEPS.length + (editing ? 0 : 1)}</p><h1>${st.t}</h1><p style="margin-top:6px">${st.sub}</p></div>`;
+  root.innerHTML = `<div class="gate wel">
+    <div class="dots">${[...WSTEPS, ...(editing ? [] : [0])].map((_, j) => `<i class="${j <= i ? "on" : ""}"></i>`).join("")}</div>
+    ${intro}
+    ${i === 0 && !editing ? `<p class="eyebrow" style="color:rgba(255,255,255,.6)">Paso 1 de ${WSTEPS.length + 1} · ${st.t}</p>` : ""}
+    <form class="card" id="wf" novalidate><div class="wgrid">${st.f.map(wField).join("")}</div><p class="err" id="werr" role="alert"></p></form>
+    <div class="row" style="gap:10px">${i > 0 ? `<button class="btn ghost" id="wback" type="button">Atrás</button>` : editing ? `<button class="btn ghost" id="wcancel" type="button">Cancelar</button>` : ""}<button class="btn primary" id="wnext" type="button" style="flex:1">${last ? (editing ? "Guardar ficha" : "Guardar y seguir") : "Siguiente"}</button></div>
+  </div>`;
+  const f = $("#wf");
+  const save = () => store.set("coach-ficha", W);
+  f.addEventListener("input", e => { const k = e.target.dataset.k; if (k) { W[k] = e.target.value; save(); } });
+  f.addEventListener("click", e => {
+    const c = e.target.closest(".chip"); if (!c) return;
+    const box = c.parentElement, k = box.dataset.k;
+    if (box.dataset.multi) { const a = new Set(W[k] || []); a.has(c.dataset.v) ? a.delete(c.dataset.v) : a.add(c.dataset.v); W[k] = WSTEPS.flatMap(s => s.f).find(x => x.k === k).o.filter(o => a.has(o)); c.classList.toggle("on"); }
+    else { W[k] = W[k] === c.dataset.v ? "" : c.dataset.v; box.querySelectorAll(".chip").forEach(b => b.classList.toggle("on", b.dataset.v === W[k])); }
+    save();
+  });
+  const back = $("#wback"); if (back) back.onclick = () => showWelcome(i - 1, editing);
+  const cancel = $("#wcancel"); if (cancel) cancel.onclick = () => { W = null; entered = false; enter(); };
+  $("#wnext").onclick = async () => {
+    const miss = st.f.find(x => x.req && !String(W[x.k] || "").trim());
+    if (miss) { $("#werr").textContent = "Falta: " + miss.l.replace(/^¿|\?$/g, "").toLowerCase() + "."; return; }
+    if (!last) { showWelcome(i + 1, editing); $(".gate").scrollTop = 0; return; }
+    const b = $("#wnext"); b.disabled = true; b.textContent = "Guardando…";
+    const res = await callFn("profile", toAnswers(W));
+    if (!res.ok) { b.disabled = false; b.textContent = "Reintentar"; $("#werr").textContent = res.error === "red" ? "Sin conexión. No pierdes nada: vuelve a intentarlo." : "No se pudo guardar ahora. Inténtalo otra vez."; return; }
+    store.del("coach-ficha"); W = null;
+    try { await loadAll(); } catch {}
+    if (editing || S.profile?.intervals_connected) { entered = false; enter(); toast("Ficha guardada"); } else showConnect();
+  };
+}
+function toAnswers(w) {
+  const n = x => { const v = parseFloat(String(x || "").replace(",", ".")); return isFinite(v) && v > 0 ? v : null; };
+  return { nombre: w.nombre, edad: n(w.edad), peso: n(w.peso), anos_bici: w.anos_bici, bici: w.bici, potenciometro: w.potenciometro === "Sí", ftp: n(w.ftp), fcmax: n(w.fcmax),
+    objetivo: w.objetivo, prueba: w.prueba, fecha_prueba: w.fecha_prueba, dias: (w.dias || []).join(", "), horas: n(w.horas), disponibilidad: w.disponibilidad, grupo: w.grupo, lesiones: w.lesiones, fuerza: w.fuerza };
+}
+function fromAnswers(a) {
+  return { ...a, potenciometro: a.potenciometro ? "Sí" : "No", dias: a.dias ? String(a.dias).split(/,\s*/).filter(Boolean) : [], edad: a.edad ?? "", peso: a.peso ?? "", ftp: a.ftp ?? "", fcmax: a.fcmax ?? "", horas: a.horas ?? "" };
+}
+
+let pollT = null;
+function showConnect() {
+  root.innerHTML = `<div class="gate wel">
+    <div class="dots">${[...WSTEPS, 0].map(() => `<i class="on"></i>`).join("")}</div>
+    <div><p class="eyebrow" style="color:rgba(255,255,255,.6)">Último paso</p><h1>Conecta tus salidas</h1>
+    <p style="margin-top:8px">El coach lee tus salidas de <strong style="color:#fff">intervals.icu</strong>, una web gratuita que recoge lo que graba tu Garmin, Karoo, Wahoo o Strava.</p></div>
+    <section class="card"><ol class="steps">
+      <li><span class="n">1</span><span>¿No tienes cuenta? Créala gratis en intervals.icu y conecta allí tu dispositivo o Strava. <a href="https://intervals.icu" target="_blank" rel="noopener" style="color:var(--mint)">Abrir intervals.icu</a></span></li>
+      <li><span class="n">2</span><span>Pulsa <strong style="color:#fff">Conectar</strong> y acepta el permiso. Solo lee tus actividades y tu forma, y guarda en tu calendario la fuerza que registres aquí.</span></li>
+      <li><span class="n">3</span><span>Vuelve a esta app: el coach importa tus últimas 8 semanas para conocerte.</span></li>
+    </ol></section>
+    <p class="err" id="cerr" role="alert"></p>
+    <button class="btn primary block" id="cgo">Conectar intervals.icu</button>
+    <button class="link" id="clater" style="align-self:center">Ahora no</button>
+  </div>`;
+  $("#cgo").onclick = () => startConnect($("#cgo"));
+  $("#clater").onclick = () => { store.set("coach-connect-later", Date.now()); entered = false; enter(); };
+  watchConnected();
+}
+async function startConnect(btn) {
+  btn.disabled = true; const t = btn.textContent; btn.textContent = "Abriendo…";
+  const res = await callFn("oauth_start");
+  if (!res.ok) { btn.disabled = false; btn.textContent = t; const e = $("#cerr"); if (e) e.textContent = "No se pudo abrir la conexión. Inténtalo otra vez."; else toast("No se pudo abrir la conexión."); return; }
+  store.set("coach-oauth-at", Date.now());
+  watchConnected();
+  location.href = res.url;
+}
+// En el iPhone, intervals.icu se abre en una hoja de Safari aparte; la app sigue aquí y comprueba cuándo queda conectada.
+function watchConnected() {
+  clearInterval(pollT);
+  const t0 = Date.now();
+  pollT = setInterval(async () => {
+    if (Date.now() - t0 > 15 * 60e3) { clearInterval(pollT); return; }
+    if (document.visibilityState !== "visible" || !session) return;
+    const { data } = await sb.from("profiles").select("*").eq("id", session.user.id).maybeSingle();
+    if (data?.intervals_connected) { clearInterval(pollT); S.profile = data; saveCache(); showConnected(data); }
+  }, 3000);
+}
+function showConnected(p) {
+  root.innerHTML = `<div class="gate wel" style="justify-content:center;text-align:center;align-items:center">
+    <div class="okmark">${ICON.check || "✓"}</div>
+    <div><h1>¡Conectado!</h1><p style="margin-top:8px">Estoy importando tus últimas 8 semanas. En unos minutos verás tu semana y tus salidas.</p></div>
+    <button class="btn primary block" id="cin">Entrar</button></div>`;
+  $("#cin").onclick = () => { entered = false; enter(); };
+}
+// Vuelta desde intervals.icu (?code=…&state=…). Puede abrirse en Safari, sin sesión: el servidor reconoce al ciclista por el state.
+async function handleOAuthReturn() {
+  const q = new URLSearchParams(location.search);
+  if (!q.get("state") || !(q.get("code") || q.get("error"))) return false;
+  const code = q.get("code"), state = q.get("state");
+  history.replaceState(null, "", location.pathname);
+  root.innerHTML = `<div class="gate wel" style="justify-content:center;text-align:center;align-items:center"><img class="logo" src="icons/icon-192.png" alt=""><h1>Conectando…</h1></div>`;
+  let res = { ok: false, error: "cancelado" };
+  if (code) {
+    try { const r = await fetch(`${FN}?a=oauth_callback`, { method: "POST", headers: { "Content-Type": "application/json", apikey: SUPA_KEY }, body: JSON.stringify({ code, state }) }); res = await r.json(); }
+    catch { res = { ok: false, error: "red" }; }
+  }
+  const { data } = await sb.auth.getSession();
+  const inApp = !!data.session;
+  const msg = res.ok
+    ? `<h1>¡Conectado!</h1><p style="margin-top:8px">${res.athlete ? `Hola, ${esc(res.athlete.split(" ")[0])}. ` : ""}${inApp ? "Ya puedes seguir." : "Ya puedes cerrar esta ventana y volver a la app del coach."}</p>`
+    : `<h1>No se ha conectado</h1><p style="margin-top:8px">${{ cancelado: "Has cancelado el permiso.", caducado: "El enlace ha caducado.", red: "Sin conexión." }[res.error] || "Algo ha fallado."} Vuelve a la app y pulsa Conectar otra vez.</p>`;
+  root.innerHTML = `<div class="gate wel" style="justify-content:center;text-align:center;align-items:center"><div class="okmark ${res.ok ? "" : "bad"}">${res.ok ? "✓" : "!"}</div><div>${msg}</div>${inApp ? `<button class="btn primary block" id="cin">${res.ok ? "Entrar" : "Volver"}</button>` : ""}</div>`;
+  if (inApp) $("#cin").onclick = () => { session = data.session; entered = true; enter(); };
+  return true;
+}
+function importCard() {
+  const p = S.profile; if (!p) return "";
+  if (!p.intervals_connected) return `<section class="card"><h3>Conecta tus salidas</h3><p class="muted">Sin intervals.icu el coach no ve lo que haces en la bici.</p><button class="btn primary" data-connect>Conectar intervals.icu</button></section>`;
+  if (p.import_status === "importando") return `<section class="card"><h3>Importando tu historial…</h3><p class="muted">Estoy leyendo tus últimas 8 semanas para ajustar tu objetivo. Tarda unos minutos.</p></section>`;
+  if (p.import_status === "error") return `<section class="card"><h3>No pude importar tu historial</h3><p class="muted">Lo reintentaré. Tus salidas nuevas sí llegarán.</p></section>`;
+  return "";
+}
+
 /* ---------- Datos ---------- */
 function saveCache() { store.set("coach-cache", { rides: S.rides, weeks: S.weeks, plan: S.plan, profile: S.profile, strength: S.strength }); }
 async function loadAll() {
@@ -142,6 +297,7 @@ function subscribe() {
     .on("postgres_changes", { event: "*", schema: "public", table: "weeks", filter: "user_id=eq." + uid }, later)
     .on("postgres_changes", { event: "*", schema: "public", table: "plans", filter: "user_id=eq." + uid }, later)
     .on("postgres_changes", { event: "*", schema: "public", table: "strength_sessions", filter: "user_id=eq." + uid }, later)
+    .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: "id=eq." + uid }, later)
     .subscribe();
 }
 async function callFn(action, body) {
@@ -195,7 +351,7 @@ function weekView() {
   const pushCard = standalone && "PushManager" in window && Notification.permission === "default"
     ? `<section class="card"><h3>Activa los avisos</h3><p class="muted">Te aviso cuando sincronices una salida, para que me cuentes cómo fue.</p><button class="btn primary" id="push-on">Activar avisos</button></section>` : "";
   return `<header><p class="eyebrow">${w.mon.getDate()} ${MON[w.mon.getMonth()]} – ${e.getDate()} ${MON[e.getMonth()]}</p><h1>Tu semana</h1></header>
-  ${pushCard}
+  ${importCard()}${pushCard}
   <section class="card">
     <div class="row between" style="align-items:baseline"><p><span class="num" style="font-size:44px">${w.pct} %</span> <span class="muted">del objetivo</span></p><p class="muted small">${nf(w.load)} / ${nf(t.load)} de carga</p></div>
     <div class="meter" role="img" aria-label="Carga ${w.pct} % del objetivo"><div style="width:${Math.min(100, w.pct)}%"></div></div>
@@ -265,14 +421,15 @@ function wireAsk() {
     toast("Plan listo");
   };
 }
+const PILL = { pendiente: ["pend", "Pendiente"], analizada: ["ok", "Analizada"], historial: ["hist", "Historial"] };
 function ridesView() {
-  const pend = S.rides.filter(r => r.status !== "analizada").length;
+  const pend = S.rides.filter(r => r.status === "pendiente").length;
   const items = [...S.rides.map(r => ({ k: "r", d: r.date, x: r })), ...(S.strength || []).map(x => ({ k: "f", d: x.date, x }))].sort((a, b) => b.d.localeCompare(a.d) || (a.k === "f" ? 1 : -1));
   const row = it => {
     const d = pd(it.d), dt = `<div class="date"><b>${d.getDate()}</b><span>${MON[d.getMonth()]} · ${DAYS[d.getDay()]}</span></div>`;
     if (it.k === "f") { const x = it.x, z = topZones(x.zones); return `<button class="ride" data-strength="${esc(x.id)}">${dt}<div style="min-width:0"><p class="t">Fuerza · ${esc(x.kind)}</p><p class="m">${x.minutes} min · esfuerzo ${x.rpe}${z ? " · " + esc(z) : ""}</p></div><span class="pill str">Fuerza</span></button>`; }
-    const r = it.x, m = r.metrics || {}, p = r.status !== "analizada";
-    return `<button class="ride" data-ride="${esc(r.id)}">${dt}<div style="min-width:0"><p class="t">${esc(r.title || "Salida")}</p><p class="m">${m.km ?? "–"} km · ${m.elev_m ?? "–"} m · ${esc(m.moving || "")}</p></div><span class="pill ${p ? "pend" : "ok"}">${p ? "Pendiente" : "Analizada"}</span></button>`;
+    const r = it.x, m = r.metrics || {}, st = PILL[r.status] || PILL.pendiente;
+    return `<button class="ride" data-ride="${esc(r.id)}">${dt}<div style="min-width:0"><p class="t">${esc(r.title || "Salida")}</p><p class="m">${m.km ?? "–"} km · ${m.elev_m ?? "–"} m · ${esc(m.moving || "")}</p></div><span class="pill ${st[0]}">${st[1]}</span></button>`;
   };
   return `<header class="row between" style="align-items:flex-end"><div><p class="eyebrow">${pend ? pend + " pendiente" + (pend > 1 ? "s" : "") + " de feedback" : "Todo analizado"}</p><h1>Salidas</h1></div><button class="btn" data-new-strength>${ICON.dumbbell} Fuerza</button></header>
   ${items.length ? `<div class="list">${items.map(row).join("")}</div>` : `<div class="empty">Aún no hay salidas. Sincroniza una desde el Karoo y tira hacia abajo para buscarla.</div>`}`;
@@ -310,11 +467,12 @@ function analysisHTML(r) {
 }
 function feedbackHTML(r) {
   const pend = r.status !== "analizada";
+  const hist = r.status === "historial";
   const qs = ["¿Solo o en grupo? Si fue en grupo, ¿quién marcó el ritmo?", "Piernas y cabeza de 1 a 5, y esfuerzo de 1 a 10.", "¿Algo fuera de lo normal? Catarro, dolor, mal sueño, estrés, poca comida, calor."];
   if (r.plan?.tipo && r.plan.date === r.date) qs.push(`¿Pudiste hacer lo planeado (${r.plan.tipo})?`);
   const canSpeak = "webkitSpeechRecognition" in window || "SpeechRecognition" in window;
-  return `<section class="card" id="fb"><h3>${pend ? "Cuéntame qué tal" : "Añadir algo más"}</h3>
-  ${pend ? `<div class="q">${qs.map(q => `<span>· ${esc(q)}</span>`).join("")}</div>` : ""}
+  return `<section class="card" id="fb"><h3>${hist ? "¿Quieres que la analice?" : pend ? "Cuéntame qué tal" : "Añadir algo más"}</h3>${hist ? `<p class="muted small">Es de antes de que te unieras. Si te acuerdas de cómo fue, cuéntamelo y la analizo.</p>` : ""}
+  ${pend && !hist ? `<div class="q">${qs.map(q => `<span>· ${esc(q)}</span>`).join("")}</div>` : ""}
   <textarea id="fb-text" placeholder="Ej.: con David a nuestro ritmo, piernas 4, cabeza 4, esfuerzo 6. Comí cada media hora." enterkeyhint="send"></textarea>
   <div class="row">${canSpeak ? `<button class="btn" id="mic" type="button">${ICON.mic} Dictar</button>` : ""}<button class="btn primary" id="send" type="button" style="flex:1">${pend ? "Enviar y analizar" : "Reanalizar"}</button></div>
   ${canSpeak ? "" : `<p class="small muted">Para dictar, usa el micrófono del teclado.</p>`}
@@ -326,7 +484,7 @@ function detailView(r) {
   const others = (r.insights || []).filter(x => !(r.climbs || []).some(c => x.includes(c.climb))).filter(x => !(m.pacing_meaningful === false && x.startsWith("**Resistencia")));
   const q = m.quarters_np || [], qmx = Math.max(...q, 200);
   return `<header style="display:flex;flex-direction:column;gap:6px"><p class="eyebrow">${DAYS[d.getDay()]} ${d.getDate()} de ${MON[d.getMonth()]} · ${m.discipline === "mtb" ? "MTB" : "Carretera"}</p>
-    <h1>${esc(r.title || "Salida")}</h1><div class="row"><span class="pill ${pend ? "pend" : "ok"}">${pend ? "Pendiente de feedback" : "Analizada"}</span>${p ? `<span class="muted small">Plan: ${esc(p.tipo)}</span>` : ""}</div></header>
+    <h1>${esc(r.title || "Salida")}</h1><div class="row"><span class="pill ${(PILL[r.status] || PILL.pendiente)[0]}">${{ pendiente: "Pendiente de feedback", analizada: "Analizada", historial: "Historial" }[r.status] || "Pendiente de feedback"}</span>${p ? `<span class="muted small">Plan: ${esc(p.tipo)}</span>` : ""}</div></header>
   <div class="stats">
     <div class="stat"><b>${m.km ?? "–"} km</b><span>distancia</span></div><div class="stat"><b>${m.elev_m ?? "–"} m</b><span>desnivel</span></div>
     <div class="stat"><b>${esc(m.moving || "–")}</b><span>en movimiento</span></div><div class="stat"><b style="${ifOver ? "color:var(--hot)" : ""}">${m.if != null ? dec(m.if) : "–"}</b><span>IF${p?.objetivos?.if_max ? ` · plan ≤ ${dec(p.objetivos.if_max)}` : ""}</span></div>
@@ -347,6 +505,8 @@ function settingsView() {
   <section class="card settings">
     <div class="rowi"><span>Cuenta</span><span class="muted small">${esc(session.user.email)}</span></div>
     <div class="rowi"><span>Avisos tras cada salida</span>${perm === "unsupported" || !standalone ? `<span class="muted small">${standalone ? "No disponibles" : "Instala la app para activarlos"}</span>` : `<button class="switch ${perm === "granted" && store.get("coach-push", 0) ? "on" : ""}" id="push-toggle" aria-label="Avisos"></button>`}</div>
+    <div class="rowi"><span>intervals.icu</span>${S.profile?.intervals_connected ? `<span class="muted small">Conectado${S.profile.import_status === "importando" ? " · importando" : ""}</span>` : `<button class="btn" id="icu-connect" style="min-height:36px;padding:6px 12px">Conectar</button>`}</div>
+    <div class="rowi"><span>Tu ficha</span><button class="btn" id="edit-profile" style="min-height:36px;padding:6px 12px">Editar</button></div>
     <div class="rowi"><span>Versión</span><span class="muted small">${VERSION}</span></div>
   </section>
   <button class="btn block" id="logout" style="color:var(--hot)">Cerrar sesión</button>`;
@@ -383,6 +543,7 @@ function onContentClick(e) {
   if (e.target.closest("[data-new-strength]")) { openSheet("fuerza"); return; }
   const t = e.target.closest("[data-tab]"); if (t) { go(t.dataset.tab); return; }
   if (e.target.closest("#push-on")) enablePush();
+  const cn = e.target.closest("[data-connect]"); if (cn) startConnect(cn);
 }
 function go(t) { tab = t; store.set("coach-tab", t); render(); $("#scroll").scrollTop = 0; }
 function openSheet(id) { if (location.hash !== "#" + id) history.pushState({ s: id }, "", "#" + id); renderSheet(); }
@@ -395,6 +556,8 @@ function renderSheet() {
   if (h === "ajustes") {
     $("#st").textContent = "Ajustes"; $("#back-l").textContent = "Volver"; sc.innerHTML = settingsView();
     $("#logout").onclick = async () => { await sb.auth.signOut(); };
+    const ic = $("#icu-connect"); if (ic) ic.onclick = () => startConnect(ic);
+    $("#edit-profile").onclick = () => { history.replaceState(null, "", location.pathname); if (channel) sb.removeChannel(channel); showWelcome(0, true); };
     const tg = $("#push-toggle"); if (tg) tg.onclick = async () => { if (tg.classList.contains("on")) { await disablePush(); tg.classList.remove("on"); } else if (await enablePush()) tg.classList.add("on"); };
   } else if (h === "fuerza" || h.startsWith("f-")) {
     if (sc.dataset.id === h && sh.classList.contains("on")) return; // no pisar el formulario abierto
@@ -420,7 +583,7 @@ function render() {
   wireAsk();
   $("#tt").textContent = { semana: "Tu semana", salidas: "Salidas", plan: "Plan" }[tab];
   document.querySelectorAll(".tab").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
-  const pend = S.rides.filter(r => r.status !== "analizada").length, bd = $("#badge");
+  const pend = S.rides.filter(r => r.status === "pendiente").length, bd = $("#badge");
   bd.hidden = !pend; bd.textContent = pend;
   if ("setAppBadge" in navigator) { try { pend ? navigator.setAppBadge(pend) : navigator.clearAppBadge(); } catch {} }
   if (location.hash) renderSheet();
@@ -631,17 +794,22 @@ async function enter() {
   shell(); render();
   try { await loadAll(); } catch { toast("Sin conexión: te muestro lo último guardado."); }
   if (S.profile && !S.profile.enabled) { showNoAccess(); return; }
+  if (S.profile && !S.profile.onboarded) { showWelcome(0); return; }
+  const later = Date.now() - store.get("coach-connect-later", 0) < 3 * 864e5;
+  if (S.profile && !S.profile.intervals_connected && !later) { showConnect(); return; }
   render(); subscribe();
 }
 let entered = false;
+const holdEnter = /[?&]state=/.test(location.search);
 sb.auth.onAuthStateChange((ev, s) => {
   session = s;
-  if (s && !entered) { entered = true; enter(); }
+  if (s && !entered && !holdEnter) { entered = true; enter(); }
   if (!s && ev === "SIGNED_OUT") { entered = false; store.del("coach-cache"); S.rides = []; S.weeks = {}; S.plan = null; S.profile = null; if (channel) sb.removeChannel(channel); showLogin(); }
 });
 (async () => {
   if ("serviceWorker" in navigator) { const had = !!navigator.serviceWorker.controller; navigator.serviceWorker.register("sw.js").catch(() => {}); let reloaded = false; navigator.serviceWorker.addEventListener("controllerchange", () => { if (had && !reloaded) { reloaded = true; location.reload(); } }); }
   navigator.serviceWorker?.addEventListener("message", e => { if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h) { history.pushState({}, "", h); renderSheet(); } } });
+  if (await handleOAuthReturn()) return;
   const { data } = await sb.auth.getSession();
   session = data.session;
   if (session) { if (!entered) { entered = true; enter(); } return; }

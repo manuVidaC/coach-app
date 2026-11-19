@@ -1,5 +1,5 @@
 // Service worker: arranque instantáneo (shell en caché) y avisos.
-const CACHE = "coach-v1.2.0";
+const CACHE = "coach-v1.3.0";
 const SHELL = ["./", "index.html", "app.css", "app.js", "manifest.webmanifest", "icons/icon-64.png", "icons/icon-180.png", "icons/icon-192.png", "icons/icon-512.png",
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
@@ -10,7 +10,7 @@ self.addEventListener("fetch", e => {
   // Shell: responde desde caché y actualiza por detrás.
   e.respondWith(caches.open(CACHE).then(async c => {
     const hit = await c.match(e.request, { ignoreSearch: true });
-    const net = fetch(e.request).then(r => { if (r.ok && (u.origin === location.origin || u.hostname.includes("jsdelivr") || u.hostname.includes("gstatic") || u.hostname.includes("googleapis"))) c.put(e.request, r.clone()); return r; }).catch(() => hit);
+    const net = fetch(e.request).then(r => { if (r.ok && (u.origin === location.origin || u.hostname.includes("jsdelivr") || u.hostname.includes("gstatic") || u.hostname.includes("googleapis"))) c.put(u.search && u.origin === location.origin ? u.origin + u.pathname : e.request, r.clone()); return r; }).catch(() => hit);
     return hit || net;
   }));
 });

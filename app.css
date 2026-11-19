@@ -161,3 +161,21 @@ input[type=range]{width:100%;accent-color:var(--pine)}
 ol.steps-l{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
 ol.steps-l li{display:grid;grid-template-columns:26px 1fr;gap:10px;align-items:start;font-size:15px}
 ol.steps-l .n{width:26px;height:26px;border-radius:50%;background:var(--pine-soft);color:var(--pine);display:grid;place-items:center;font-family:var(--display);font-weight:600}
+
+/* Bienvenida y conexión */
+.wel .dots{display:flex;gap:6px}.wel .dots i{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.18)}.wel .dots i.on{background:var(--mint)}
+.wgrid{display:flex;flex-wrap:wrap;gap:16px}
+.wgrid .field{width:100%}.wgrid .field.half{width:calc(50% - 8px)}
+.gate .field .lab{color:rgba(255,255,255,.75);font-size:14px}
+.gate textarea{width:100%;font:inherit;font-size:16px;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.18);color:#fff;outline:none;resize:vertical;min-height:84px}
+.gate textarea:focus{border-color:var(--mint)}
+.gate input::placeholder,.gate textarea::placeholder{color:rgba(255,255,255,.4)}
+.gate input[type=date]{min-height:52px;-webkit-appearance:none;appearance:none;color-scheme:dark}
+.gate .chip{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.22);color:#fff}
+.gate .chip.on{background:#fff;border-color:#fff;color:var(--club);font-weight:600}
+.gate .steps a{font-weight:500}
+.okmark{width:84px;height:84px;border-radius:50%;background:var(--mint);color:var(--club);display:grid;place-items:center;font-family:var(--display);font-size:48px;font-weight:700}
+.okmark.bad{background:#ffb59a}
+.pill.hist{background:var(--line);color:var(--muted)}
+.gate input[type=date]{background:rgba(0,0,0,.18);color:#fff;font-size:16px}
+.gate .chips[data-multi="1"]{flex-wrap:nowrap;gap:6px}.gate .chips[data-multi="1"] .chip{flex:1;padding:8px 0;min-width:0}
