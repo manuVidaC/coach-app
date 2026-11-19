@@ -4,7 +4,7 @@ const SUPA_URL = "https://iglbakcgsahqmoepkoyc.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGJha2Nnc2FocW1vZXBrb3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5Mjc0NzAsImV4cCI6MjExMDUwMzQ3MH0.XENiPTNHvEWkva0agvbGRHrbmGGKt40dEQ8ZTgNMWz4";
 const VAPID = "BJJQBXNoM0RiUnLaiZx4BxfKxSCGfNpkIIH_PTa-48WnvwrwTADD_mzZ1dJOuUkXvBCDKbndtNUaIZKFNEfvPDA";
 const FN = SUPA_URL + "/functions/v1/coach";
-const VERSION = "1.6.2";
+const VERSION = "1.6.3";
 
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: "coach-auth" } });
 const $ = (s, e = document) => e.querySelector(s);
@@ -624,7 +624,7 @@ function memberDetail(m) {
   const w = m.semana, c = S.community;
   const climbs = (c?.subidas || []).map(x => { const i = x.riders.findIndex(r => r.id === m.id); return i < 0 ? null : { ...x.riders[i], name: x.name, disc: x.disc, pos: i + 1, of: x.riders.length }; }).filter(Boolean);
   return `<header class="mhero">${avatarHTML(m.name, m.avatar, 84)}<h1>${esc(m.name)}</h1>${m.bici ? `<p class="muted">${esc(m.bici)}</p>` : ""}</header>
-  ${w ? `<section class="card"><h3>Esta semana</h3><div class="mweek"><div><b>${w.salidas}</b><span>salidas</span></div><div><b>${String(w.horas).replace(".", ",")}</b><span>horas</span></div>${w.pct != null ? `<div style="flex:1"><b>${w.pct} %</b><span>de su objetivo de carga</span><i class="bar"><i style="width:${Math.min(100, w.pct)}%"></i></i></div>` : ""}</div></section>` : ""}
+  ${w ? `<section class="card"><h3>Esta semana</h3><div class="mweek"><div><b>${w.salidas}</b><span>salidas</span></div><div><b>${String(w.horas).replace(".", ",")}</b><span>horas</span></div>${w.pct != null ? `<div style="flex:1"><b>${w.pct} %</b><span>de su objetivo de carga</span><i class="pbar"><i style="width:${Math.min(100, w.pct)}%"></i></i></div>` : ""}</div></section>` : ""}
   ${m.salidas?.length ? `<section class="card"><h3>Últimas salidas</h3><div class="mrides">${m.salidas.map(r => `<div><span class="muted small">${esc(dshort(r.date))}</span><span class="tt">${esc(r.title || "Salida")}</span><span class="muted small">${r.km ?? "–"} km · ${r.elev ?? "–"} m</span></div>`).join("")}</div></section>` : ""}
   ${climbs.length ? `<section class="card"><h3>Subidas del club</h3><div class="mrides">${climbs.map(x => `<div><span class="muted small">${x.pos}.º de ${x.of}</span><span class="tt">${esc(x.name)}${x.disc ? ` · ${x.disc === "mtb" ? "MTB" : "carretera"}` : ""}</span><span><b>${esc(x.best)}</b></span></div>`).join("")}</div><button class="link" data-open="subidas" style="margin-top:10px;color:var(--pine)">Ver las tablas completas ›</button></section>` : ""}
   ${!w && !m.salidas && !climbs.length ? `<div class="empty">${esc(m.name.split(" ")[0])} prefiere no mostrar más datos.</div>` : ""}`;
@@ -656,7 +656,7 @@ function adminView(a) {
   const b = a.budget, pct = Math.min(100, Math.round((b.spent / b.max) * 100));
   const n = (v, l) => `<div><b>${v}</b><span>${l}</span></div>`;
   return `<header><h1>Uso del piloto</h1><p class="muted">${a.users.length} ciclistas dentro${a.pending_invites ? ` · ${a.pending_invites} invitación pendiente${a.pending_invites > 1 ? "s" : ""}` : ""}</p></header>
-  <section class="card"><h3>Presupuesto de Claude este mes</h3><p><b style="font-size:28px;font-family:var(--display)">${b.spent.toFixed(2).replace(".", ",")} $</b> <span class="muted">de ${b.max} $</span></p><i class="bar" style="margin:10px 0"><i style="width:${pct}%"></i></i><p class="muted small">${b.today} de ${b.day_max} llamadas en las últimas 24 h · estimado con precio conservador</p></section>
+  <section class="card"><h3>Presupuesto de Claude este mes</h3><p><b style="font-size:28px;font-family:var(--display)">${b.spent.toFixed(2).replace(".", ",")} $</b> <span class="muted">de ${b.max} $</span></p><i class="pbar" style="margin:10px 0"><i style="width:${pct}%"></i></i><p class="muted small">${b.today} de ${b.day_max} llamadas en las últimas 24 h · estimado con precio conservador</p></section>
   ${a.users.map(u => `<section class="card member">
     <div class="mhead">${avatarHTML(u.name, u.avatar, 44)}<div style="min-width:0"><p class="t">${esc(u.name || "Sin nombre")}</p><p class="m">Última vez ${ago(u.last_seen)}</p></div></div>
     <p class="eyebrow" style="margin-top:14px">Últimos 7 días</p><div class="mgrid">${n(u.opens7, "aperturas")}${n(u.analyses7, "análisis")}${n(u.asks7, "preguntas")}${n(u.refresh7, "búsquedas")}</div>
