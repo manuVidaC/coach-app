@@ -245,3 +245,8 @@ h2.sect{font-family:var(--display);font-size:22px;margin:8px 4px 0}
 .rank .nm{display:flex;flex-direction:column;white-space:normal;overflow:visible}
 .rank .nm .who{font-weight:600;font-size:16px}
 .rank b.tm{font-family:var(--display);font-size:20px;flex:none;display:block}
+.body .base{fill:var(--bodybase);pointer-events:none}
+.body .bdet{fill:none;stroke:var(--muted);stroke-width:1;opacity:.5;pointer-events:none}
+.body .zone{stroke:var(--card);stroke-width:.8;stroke-linejoin:round}
+.body .zone .hit{fill:none;stroke:transparent;stroke-width:9;pointer-events:stroke}
+.body .zone:focus-visible{stroke:var(--fg);stroke-width:1.5}

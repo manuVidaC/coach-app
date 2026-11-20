@@ -4,7 +4,7 @@ const SUPA_URL = "https://iglbakcgsahqmoepkoyc.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGJha2Nnc2FocW1vZXBrb3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5Mjc0NzAsImV4cCI6MjExMDUwMzQ3MH0.XENiPTNHvEWkva0agvbGRHrbmGGKt40dEQ8ZTgNMWz4";
 const VAPID = "BJJQBXNoM0RiUnLaiZx4BxfKxSCGfNpkIIH_PTa-48WnvwrwTADD_mzZ1dJOuUkXvBCDKbndtNUaIZKFNEfvPDA";
 const FN = SUPA_URL + "/functions/v1/coach";
-const VERSION = "1.6.9";
+const VERSION = "1.7.0";
 
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: "coach-auth" } });
 const $ = (s, e = document) => e.querySelector(s);
@@ -363,7 +363,7 @@ async function callFn(action, body) {
 
 /* ---------- Lógica de semana ---------- */
 function target() { return Object.assign({ load: 500, rides: 3, min_rides: 2, long_min_h: 2.5, long_min_kj: 1300, quality_if: 0.85, strength: 1 }, S.profile?.context?.week_target || {}); }
-const LEG_ZONES = ["cuadriceps", "isquios", "gluteos", "gemelos", "aductores"];
+const LEG_ZONES = ["cuadriceps", "isquios", "gluteos", "gemelos", "aductores", "tibiales"];
 const legsLevel = x => Math.max(0, ...LEG_ZONES.map(k => (x.zones || {})[k] || 0));
 const isLong = r => { const m = r.metrics || {}, t = target(); return hrs(m.moving) >= t.long_min_h || (m.kj || 0) >= t.long_min_kj; };
 const isHard = r => { const m = r.metrics || {}; return (m.if || 0) >= 0.82 || (m.load || 0) >= 150; };
@@ -811,7 +811,7 @@ function edgeSwipe(sh) {
 }
 
 /* ---------- Fuerza: maniquí y formulario ---------- */
-const ZONES = { hombros: "Hombros", pecho: "Pecho", biceps: "Bíceps", triceps: "Tríceps", antebrazos: "Antebrazos", abdomen: "Abdomen", oblicuos: "Oblicuos", trapecio: "Trapecio", espalda: "Espalda", lumbares: "Lumbares", gluteos: "Glúteos", cuadriceps: "Cuádriceps", isquios: "Isquios", aductores: "Aductores", gemelos: "Gemelos" };
+const ZONES = { hombros: "Hombros", pecho: "Pecho", biceps: "Bíceps", triceps: "Tríceps", antebrazos: "Antebrazos", abdomen: "Abdomen", oblicuos: "Oblicuos", trapecio: "Trapecio", espalda: "Espalda", lumbares: "Lumbares", gluteos: "Glúteos", cuadriceps: "Cuádriceps", isquios: "Isquios", aductores: "Aductores", gemelos: "Gemelos", tibiales: "Tibiales" };
 const LEVELS = ["Sin trabajar", "Ligero", "Medio", "A tope"];
 const PRESETS = {
   "Piernas": { cuadriceps: 3, gluteos: 3, isquios: 2, gemelos: 2, aductores: 1 },
@@ -821,27 +821,35 @@ const PRESETS = {
 };
 const KINDS = ["Sístole", "Gimnasio", "Core", "Movilidad", "Otro"];
 function topZones(z) { return Object.entries(z || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => ZONES[k].toLowerCase()).join(", "); }
-const E = (cx, cy, rx, ry) => `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}"/>`;
-const R = (x, y, w, h, r) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}"/>`;
-const BASE = `<circle cx="100" cy="36" r="21"/>${R(91, 54, 18, 18, 6)}${R(64, 72, 72, 140, 26)}${R(70, 192, 60, 44, 16)}${R(34, 80, 24, 72, 12)}${R(142, 80, 24, 72, 12)}${R(29, 148, 20, 74, 10)}${R(151, 148, 20, 74, 10)}<circle cx="39" cy="230" r="9"/><circle cx="161" cy="230" r="9"/>${R(68, 226, 31, 104, 14)}${R(101, 226, 31, 104, 14)}${R(70, 324, 25, 82, 11)}${R(105, 324, 25, 82, 11)}${E(82, 412, 14, 7)}${E(118, 412, 14, 7)}`;
+// Maniquí anatómico (diseño de Manu con Gemini). Cada zona: lista de trazados.
+const SIL = 'M 110 16 C 122 16, 128 24, 127 38 C 127 49, 122 59, 118 63 C 117 69, 119 75, 126 79 C 136 83, 150 85, 157 93 C 163 101, 165 114, 165 130 C 165 144, 167 156, 169 167 C 173 182, 177 202, 179 224 C 183 233, 185 244, 183 253 C 181 259, 176 261, 173 257 C 171 253, 171 246, 170 241 C 168 243, 165 245, 163 242 C 162 238, 165 232, 168 226 C 164 206, 158 186, 154 168 C 151 154, 148 142, 145 134 C 145 148, 142 166, 140 183 C 141 196, 146 208, 148 224 C 150 246, 149 278, 144 312 C 147 334, 148 358, 142 384 C 139 396, 138 406, 139 415 C 144 424, 150 432, 150 439 C 149 444, 140 445, 132 443 C 127 441, 126 435, 127 427 C 128 421, 128 417, 127 413 C 124 394, 121 368, 122 342 C 123 328, 125 318, 124 310 C 121 286, 117 262, 114 238 C 113 234, 111 233, 110 233 C 109 233, 107 234, 106 238 C 103 262, 99 286, 96 310 C 95 318, 97 328, 98 342 C 99 368, 96 394, 93 413 C 92 417, 92 421, 93 427 C 94 435, 93 441, 88 443 C 80 445, 71 444, 70 439 C 70 432, 76 424, 81 415 C 82 406, 81 396, 78 384 C 72 358, 73 334, 76 312 C 71 278, 70 246, 72 224 C 74 208, 79 196, 80 183 C 78 166, 75 148, 75 134 C 72 142, 69 154, 66 168 C 62 186, 56 206, 52 226 C 55 232, 58 238, 57 242 C 55 245, 52 243, 50 241 C 49 246, 49 253, 47 257 C 44 261, 39 259, 37 253 C 35 244, 37 233, 41 224 C 43 202, 47 182, 51 167 C 53 156, 55 144, 55 130 C 55 114, 57 101, 63 93 C 70 85, 84 83, 94 79 C 101 75, 103 69, 102 63 C 98 59, 93 49, 93 38 C 92 24, 98 16, 110 16 Z';
+const DET = { front: ['M 92 86 Q 101 89 108 88 M 128 86 Q 119 89 112 88', 'M 81 314 Q 86 318 91 314 M 129 314 Q 134 318 139 314'], back: ['M 81 317 Q 86 315 91 317 M 129 317 Q 134 315 139 317', 'M 86 388 L 86 414 M 134 388 L 134 414'] };
 const FRONT = {
-  hombros: E(52, 90, 16, 13) + E(148, 90, 16, 13), pecho: E(86, 102, 17, 16) + E(114, 102, 17, 16),
-  biceps: E(46, 124, 10, 22) + E(154, 124, 10, 22), antebrazos: E(39, 184, 9, 26) + E(161, 184, 9, 26),
-  abdomen: R(89, 122, 22, 66, 8), oblicuos: E(76, 158, 8, 24) + E(124, 158, 8, 24),
-  aductores: E(95, 248, 5, 20) + E(105, 248, 5, 20), cuadriceps: E(82, 272, 13, 40) + E(118, 272, 13, 40),
-  gemelos: E(82, 356, 9, 26) + E(118, 356, 9, 26),
+  hombros: ['M 82 86 C 72 86, 62 93, 59 106 C 58 114, 59 121, 62 124 C 67 116, 72 106, 77 98 C 80 93, 83 89, 82 86 Z', 'M 138 86 C 148 86, 158 93, 161 106 C 162 114, 161 121, 158 124 C 153 116, 148 106, 143 98 C 140 93, 137 89, 138 86 Z'],
+  pecho: ['M 108 96 C 101 94, 91 94, 82 96 C 77 103, 76 113, 78 123 C 81 130, 91 133, 102 131 C 106 130, 108 126, 108 120 Z', 'M 112 96 C 119 94, 129 94, 138 96 C 143 103, 144 113, 142 123 C 139 130, 129 133, 118 131 C 114 130, 112 126, 112 120 Z'],
+  biceps: ['M 63 126 C 58 132, 56 144, 57 156 C 58 162, 60 165, 63 163 C 67 157, 70 145, 69 134 C 68 128, 66 124, 63 126 Z', 'M 157 126 C 162 132, 164 144, 163 156 C 162 162, 160 165, 157 163 C 153 157, 150 145, 151 134 C 152 128, 154 124, 157 126 Z'],
+  antebrazos: ['M 58 172 C 53 177, 49 190, 47 205 C 46 213, 46 218, 48 220 C 51 217, 55 208, 58 196 C 61 185, 62 175, 58 172 Z', 'M 162 172 C 167 177, 171 190, 173 205 C 174 213, 174 218, 172 220 C 169 217, 165 208, 162 196 C 159 185, 158 175, 162 172 Z'],
+  abdomen: ['M 108 137 C 102 137, 96 139, 95 144 C 95 150, 96 155, 100 156 C 104 157, 108 156, 108 152 Z', 'M 112 137 C 118 137, 124 139, 125 144 C 125 150, 124 155, 120 156 C 116 157, 112 156, 112 152 Z', 'M 108 160 C 103 160, 97 161, 96 165 C 96 171, 97 177, 101 179 C 105 180, 108 178, 108 174 Z', 'M 112 160 C 117 160, 123 161, 124 165 C 124 171, 123 177, 119 179 C 115 180, 112 178, 112 174 Z', 'M 108 183 C 103 183, 98 184, 97 188 C 97 198, 101 210, 106 218 C 108 219, 108 214, 108 206 Z', 'M 112 183 C 117 183, 122 184, 123 188 C 123 198, 119 210, 114 218 C 112 219, 112 214, 112 206 Z'],
+  oblicuos: ['M 81 139 C 85 139, 90 144, 91 153 C 92 165, 93 179, 95 191 C 96 198, 95 203, 92 204 C 86 199, 82 189, 82 178 C 81 165, 79 150, 81 139 Z', 'M 139 139 C 135 139, 130 144, 129 153 C 128 165, 127 179, 125 191 C 124 198, 125 203, 128 204 C 134 199, 138 189, 138 178 C 139 165, 141 150, 139 139 Z'],
+  cuadriceps: ['M 78 228 C 74 242, 74 268, 78 294 C 80 302, 82 306, 84 302 C 86 286, 86 260, 84 238 C 83 231, 80 226, 78 228 Z', 'M 88 232 C 86 250, 86 276, 87 298 C 88 306, 92 308, 95 300 C 97 288, 97 268, 95 248 C 94 238, 91 230, 88 232 Z', 'M 142 228 C 146 242, 146 268, 142 294 C 140 302, 138 306, 136 302 C 134 286, 134 260, 136 238 C 137 231, 140 226, 142 228 Z', 'M 132 232 C 134 250, 134 276, 133 298 C 132 306, 128 308, 125 300 C 123 288, 123 268, 125 248 C 126 238, 129 230, 132 232 Z'],
+  aductores: ['M 104 236 C 99 236, 97 242, 97 254 C 98 268, 99 280, 100 284 C 102 276, 104 260, 105 245 C 106 239, 106 236, 104 236 Z', 'M 116 236 C 121 236, 123 242, 123 254 C 122 268, 121 280, 120 284 C 118 276, 116 260, 115 245 C 114 239, 114 236, 116 236 Z'],
+  tibiales: ['M 79 332 C 76 346, 76 368, 81 394 C 83 401, 85 403, 86 396 C 87 378, 88 354, 86 336 C 85 330, 81 328, 79 332 Z', 'M 141 332 C 144 346, 144 368, 139 394 C 137 401, 135 403, 134 396 C 133 378, 132 354, 134 336 C 135 330, 139 328, 141 332 Z'],
 };
 const BACK = {
-  trapecio: `<polygon points="82,70 118,70 126,90 100,112 74,90"/>`, hombros: E(52, 90, 16, 13) + E(148, 90, 16, 13),
-  espalda: E(82, 132, 16, 30) + E(118, 132, 16, 30), triceps: E(46, 124, 10, 22) + E(154, 124, 10, 22),
-  antebrazos: E(39, 184, 9, 26) + E(161, 184, 9, 26), lumbares: R(88, 162, 24, 32, 8),
-  gluteos: E(85, 214, 16, 17) + E(115, 214, 16, 17), isquios: E(84, 274, 13, 38) + E(116, 274, 13, 38),
-  gemelos: E(82, 352, 11, 28) + E(118, 352, 11, 28),
+  trapecio: ['M 110 74 C 104 75, 98 83, 86 89 C 89 96, 95 106, 99 120 C 102 132, 105 144, 110 152 C 115 144, 118 132, 121 120 C 125 106, 131 96, 134 89 C 122 83, 116 75, 110 74 Z'],
+  hombros: ['M 82 88 C 72 88, 62 95, 59 108 C 58 115, 60 121, 63 123 C 68 117, 75 109, 81 100 C 84 95, 85 90, 82 88 Z', 'M 138 88 C 148 88, 158 95, 161 108 C 162 115, 160 121, 157 123 C 152 117, 145 109, 139 100 C 136 95, 135 90, 138 88 Z'],
+  espalda: ['M 85 102 C 79 112, 77 126, 79 144 C 81 158, 85 170, 91 178 C 94 176, 97 166, 99 154 C 100 140, 97 124, 92 110 C 90 105, 87 101, 85 102 Z', 'M 135 102 C 141 112, 143 126, 141 144 C 139 158, 135 170, 129 178 C 126 176, 123 166, 121 154 C 120 140, 123 124, 128 110 C 130 105, 133 101, 135 102 Z'],
+  lumbares: ['M 108 158 C 103 158, 99 164, 97 175 C 95 184, 95 192, 99 195 C 103 196, 108 195, 108 190 Z', 'M 112 158 C 117 158, 121 164, 123 175 C 125 184, 125 192, 121 195 C 117 196, 112 195, 112 190 Z'],
+  triceps: ['M 63 125 C 58 132, 55 144, 56 158 C 57 164, 60 167, 64 164 C 68 157, 71 145, 70 133 C 69 127, 66 123, 63 125 Z', 'M 157 125 C 162 132, 165 144, 164 158 C 163 164, 160 167, 156 164 C 152 157, 149 145, 150 133 C 151 127, 154 123, 157 125 Z'],
+  antebrazos: ['M 58 172 C 53 177, 49 190, 47 205 C 46 213, 46 218, 48 220 C 51 217, 55 208, 58 196 C 61 185, 62 175, 58 172 Z', 'M 162 172 C 167 177, 171 190, 173 205 C 174 213, 174 218, 172 220 C 169 217, 165 208, 162 196 C 159 185, 158 175, 162 172 Z'],
+  gluteos: ['M 108 202 C 98 199, 85 202, 79 211 C 74 219, 75 231, 83 238 C 91 244, 102 243, 107 236 C 108 232, 108 214, 108 202 Z', 'M 112 202 C 122 199, 135 202, 141 211 C 146 219, 145 231, 137 238 C 129 244, 118 243, 113 236 C 112 232, 112 214, 112 202 Z'],
+  isquios: ['M 81 246 C 77 258, 77 280, 82 302 C 84 310, 89 312, 93 306 C 97 294, 100 274, 100 254 C 99 246, 89 243, 81 246 Z', 'M 139 246 C 143 258, 143 280, 138 302 C 136 310, 131 312, 127 306 C 123 294, 120 274, 120 254 C 121 246, 131 243, 139 246 Z'],
+  gemelos: ['M 80 330 C 75 340, 75 358, 80 376 C 82 382, 85 384, 86 378 C 87 364, 87 346, 85 334 C 84 330, 82 328, 80 330 Z', 'M 92 330 C 89 332, 88 346, 88 364 C 89 378, 90 384, 92 379 C 96 364, 97 346, 95 334 C 94 330, 93 329, 92 330 Z', 'M 140 330 C 145 340, 145 358, 140 376 C 138 382, 135 384, 134 378 C 133 364, 133 346, 135 334 C 136 330, 138 328, 140 330 Z', 'M 128 330 C 131 332, 132 346, 132 364 C 131 378, 130 384, 128 379 C 124 364, 123 346, 125 334 C 126 330, 127 329, 128 330 Z'],
 };
 function bodySvg(view, zones, label) {
   const map = view === "front" ? FRONT : BACK;
-  return `<figure class="body"><svg viewBox="0 0 200 424" role="group" aria-label="${label}"><g class="base">${BASE}</g>${Object.entries(map).map(([k, shp]) =>
-    `<g class="zone l${zones[k] || 0}" data-z="${k}" role="button" tabindex="0" aria-label="${ZONES[k]}: ${LEVELS[zones[k] || 0]}">${shp}</g>`).join("")}</svg><figcaption>${label}</figcaption></figure>`;
+  return `<figure class="body"><svg viewBox="0 0 220 460" role="group" aria-label="${label}"><path class="base" d="${SIL}"/>${DET[view].map(d => `<path class="bdet" d="${d}"/>`).join("")}${Object.entries(map).map(([k, ps]) =>
+    `<g class="zone l${zones[k] || 0}" data-z="${k}" role="button" tabindex="0" aria-label="${ZONES[k]}: ${LEVELS[zones[k] || 0]}">${ps.map(d => `<path d="${d}"/>`).join("")}${ps.map(d => `<path class="hit" d="${d}"/>`).join("")}</g>`).join("")}</svg><figcaption>${label}</figcaption></figure>`;
 }
 let FS = null;
 function strengthForm(x) {
