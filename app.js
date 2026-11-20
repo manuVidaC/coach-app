@@ -4,7 +4,7 @@ const SUPA_URL = "https://iglbakcgsahqmoepkoyc.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGJha2Nnc2FocW1vZXBrb3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5Mjc0NzAsImV4cCI6MjExMDUwMzQ3MH0.XENiPTNHvEWkva0agvbGRHrbmGGKt40dEQ8ZTgNMWz4";
 const VAPID = "BJJQBXNoM0RiUnLaiZx4BxfKxSCGfNpkIIH_PTa-48WnvwrwTADD_mzZ1dJOuUkXvBCDKbndtNUaIZKFNEfvPDA";
 const FN = SUPA_URL + "/functions/v1/coach";
-const VERSION = "1.7.2";
+const VERSION = "1.7.3";
 
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: "coach-auth" } });
 const $ = (s, e = document) => e.querySelector(s);
@@ -531,7 +531,7 @@ function feedbackHTML(r) {
   ${canSpeak ? "" : `<p class="small muted">Para dictar, usa el micrófono del teclado.</p>`}
   <p class="ferr" id="ferr" role="alert"></p><div id="live" aria-live="polite"></div></section>`;
 }
-// Mapa de la ruta (Leaflet + teselas de CARTO sobre OpenStreetMap). La ruta solo la ve su dueño.
+// Mapa de la ruta (Leaflet + teselas de OpenStreetMap; en oscuro se invierten con un filtro). La ruta solo la ve su dueño.
 let leafletP = null;
 function loadLeaflet() {
   if (window.L) return Promise.resolve(window.L);
@@ -546,7 +546,7 @@ async function drawRoute(r) {
     const L = await loadLeaflet(); if (!el.isConnected) return;
     const dark = matchMedia("(prefers-color-scheme: dark)").matches;
     const map = L.map(el, { zoomControl: false, attributionControl: true, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false, boxZoom: false, keyboard: false, tap: false });
-    L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark ? "dark_all" : "rastertiles/voyager"}/{z}/{x}/{y}{r}.png`, { subdomains: "abcd", maxZoom: 18, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/attributions">CARTO</a>' }).addTo(map);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, className: dark ? "osm-dark" : "", attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(map);
     map.attributionControl.setPrefix(false);
     const line = L.polyline(pts, { color: dark ? "#ff7a3d" : "#e85d1f", weight: 4, opacity: .95, lineJoin: "round" }).addTo(map);
     L.circleMarker(pts[0], { radius: 5, color: "#fff", weight: 2, fillColor: "#2fb36b", fillOpacity: 1 }).addTo(map);
