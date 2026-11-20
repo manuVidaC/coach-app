@@ -250,3 +250,13 @@ h2.sect{font-family:var(--display);font-size:22px;margin:8px 4px 0}
 .body .zone{stroke:var(--card);stroke-width:.8;stroke-linejoin:round}
 .body .zone .hit{fill:none;stroke:transparent;stroke-width:9;pointer-events:stroke}
 .body .zone:focus-visible{stroke:var(--fg);stroke-width:1.5}
+.card.map{padding:0;overflow:hidden}
+#rmap{height:220px;width:100%;background:var(--line)}
+#rmap .leaflet-control-attribution{font-size:9px;background:rgba(0,0,0,.35);color:#ddd}
+#rmap .leaflet-control-attribution a{color:#eee}
+.btn.addf{min-height:40px;padding:8px 14px;gap:6px}
+.btn.addf .plus{font-size:20px;line-height:1;font-weight:600;margin-right:-2px}
+.btn.addf svg{width:18px;height:18px}
+.mrow .ico.cup{color:var(--sun)}
+.rank .first{display:inline-flex;color:var(--sun);margin:0 -2px 0 -4px}
+.rank .first svg{width:18px;height:18px}

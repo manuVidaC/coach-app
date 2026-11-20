@@ -4,7 +4,7 @@ const SUPA_URL = "https://iglbakcgsahqmoepkoyc.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGJha2Nnc2FocW1vZXBrb3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5Mjc0NzAsImV4cCI6MjExMDUwMzQ3MH0.XENiPTNHvEWkva0agvbGRHrbmGGKt40dEQ8ZTgNMWz4";
 const VAPID = "BJJQBXNoM0RiUnLaiZx4BxfKxSCGfNpkIIH_PTa-48WnvwrwTADD_mzZ1dJOuUkXvBCDKbndtNUaIZKFNEfvPDA";
 const FN = SUPA_URL + "/functions/v1/coach";
-const VERSION = "1.7.1";
+const VERSION = "1.7.2";
 
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: "coach-auth" } });
 const $ = (s, e = document) => e.querySelector(s);
@@ -29,12 +29,13 @@ let session = null, tab = store.get("coach-tab", "semana"), channel = null;
 
 const ICON = {
   semana: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><rect x="5" y="11" width="3" height="7" rx="1"/><rect x="10.5" y="7" width="3" height="11" rx="1"/><rect x="16" y="4" width="3" height="14" rx="1"/></svg>',
-  salidas: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-7h5l3 7M10 9l-1.5-3H6M15 9l-2 7"/></svg>',
+  salidas: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="16.5" r="3.6"/><circle cx="19" cy="16.5" r="3.6"/><path d="M5 16.5L8.6 9h7.6L19 16.5"/><path d="M8.6 9l3.6 7.5 4-7.5"/><path d="M7 6h3.4M16.2 9l-1-3.2h2.6"/><circle cx="12.2" cy="16.5" r=".9" fill="currentColor"/></svg>',
+  trophy: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M7 6H4.5v1.5A3 3 0 0 0 7.5 10.5M17 6h2.5v1.5a3 3 0 0 1-3 3"/><path d="M12 14v3.5M8.5 20.5h7M9.5 20.5l.8-3h3.4l.8 3"/></svg>',
   grupeta: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 19.5c.6-3.2 3-5 6-5s5.4 1.8 6 5"/><circle cx="17" cy="9" r="2.6"/><path d="M16.5 14.6c2.4.2 4 1.7 4.5 4.4"/></svg>',
   plan: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16M9 14l2 2 4-4"/></svg>',
   share: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>',
   plus: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M12 8v8M8 12h8"/></svg>',
-  refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg>',
+  refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.3 15.4A8 8 0 1 1 18 6.7"/><path d="M19.6 3.4v4.9h-4.9"/></svg>',
   chev: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
   dumbbell: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 7v10M3 9.5v5M18 7v10M21 9.5v5M6 12h12"/></svg>',
   mic: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
@@ -409,7 +410,6 @@ function weekView() {
     <div class="row between" style="align-items:baseline"><p><span class="num" style="font-size:44px">${w.pct} %</span> <span class="muted">del objetivo</span></p><p class="muted small">${nf(w.load)} / ${nf(t.load)} de carga</p></div>
     <div class="meter" role="img" aria-label="Carga ${w.pct} % del objetivo"><div style="width:${Math.min(100, w.pct)}%"></div></div>
     <p class="muted small">${fmtH(w.h)} · ${w.inW.length} salida${w.inW.length == 1 ? "" : "s"}${w.strW.length ? ` · ${w.strW.length} de fuerza` : ""} · quedan ${w.left} día${w.left == 1 ? "" : "s"}</p>
-    <button class="btn" data-new-strength style="align-self:flex-start">${ICON.dumbbell} Añadir fuerza</button>
     <div class="checks">
       <div class="check ${w.inW.length >= t.rides ? "done" : ""}"><span class="d">${w.inW.length >= t.rides ? "✓" : ""}</span>${w.inW.length} de ${t.rides} salidas</div>
       <div class="check ${w.long ? "done" : ""}"><span class="d">${w.long ? "✓" : ""}</span>Tirada larga</div>
@@ -484,7 +484,7 @@ function ridesView() {
     const r = it.x, m = r.metrics || {}, st = PILL[r.status] || PILL.pendiente;
     return `<button class="ride" data-ride="${esc(r.id)}">${dt}<div style="min-width:0"><p class="t">${esc(r.title || "Salida")}</p><p class="m">${m.km ?? "–"} km · ${m.elev_m ?? "–"} m · ${esc(m.moving || "")}</p></div><span class="pill ${st[0]}">${st[1]}</span></button>`;
   };
-  return `<header class="row between" style="align-items:flex-end"><div><p class="eyebrow">${pend ? pend + " pendiente" + (pend > 1 ? "s" : "") + " de feedback" : "Todo analizado"}</p><h1>Salidas</h1></div><button class="btn" data-new-strength>${ICON.dumbbell} Fuerza</button></header>
+  return `<header class="row between" style="align-items:flex-end"><div><p class="eyebrow">${pend ? pend + " pendiente" + (pend > 1 ? "s" : "") + " de feedback" : "Todo analizado"}</p><h1>Salidas</h1></div><button class="btn primary addf" data-new-strength aria-label="Añadir sesión de fuerza"><span class="plus">+</span>${ICON.dumbbell} Fuerza</button></header>
   ${items.length ? `<div class="list">${items.map(row).join("")}</div>` : `<div class="empty">Aún no hay salidas. Sincroniza una desde el Karoo y tira hacia abajo para buscarla.</div>`}`;
 }
 function planView() {
@@ -531,6 +531,29 @@ function feedbackHTML(r) {
   ${canSpeak ? "" : `<p class="small muted">Para dictar, usa el micrófono del teclado.</p>`}
   <p class="ferr" id="ferr" role="alert"></p><div id="live" aria-live="polite"></div></section>`;
 }
+// Mapa de la ruta (Leaflet + teselas de CARTO sobre OpenStreetMap). La ruta solo la ve su dueño.
+let leafletP = null;
+function loadLeaflet() {
+  if (window.L) return Promise.resolve(window.L);
+  return leafletP ||= new Promise((ok, ko) => {
+    const css = document.createElement("link"); css.rel = "stylesheet"; css.href = "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(css);
+    const js = document.createElement("script"); js.src = "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"; js.onload = () => ok(window.L); js.onerror = e => { leafletP = null; ko(e); }; document.head.appendChild(js);
+  });
+}
+async function drawRoute(r) {
+  const el = $("#rmap"), pts = r.metrics?.route; if (!el || !(pts?.length > 1)) return;
+  try {
+    const L = await loadLeaflet(); if (!el.isConnected) return;
+    const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+    const map = L.map(el, { zoomControl: false, attributionControl: true, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false, boxZoom: false, keyboard: false, tap: false });
+    L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark ? "dark_all" : "rastertiles/voyager"}/{z}/{x}/{y}{r}.png`, { subdomains: "abcd", maxZoom: 18, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/attributions">CARTO</a>' }).addTo(map);
+    map.attributionControl.setPrefix(false);
+    const line = L.polyline(pts, { color: dark ? "#ff7a3d" : "#e85d1f", weight: 4, opacity: .95, lineJoin: "round" }).addTo(map);
+    L.circleMarker(pts[0], { radius: 5, color: "#fff", weight: 2, fillColor: "#2fb36b", fillOpacity: 1 }).addTo(map);
+    L.circleMarker(pts[pts.length - 1], { radius: 5, color: "#fff", weight: 2, fillColor: "#d64545", fillOpacity: 1 }).addTo(map);
+    map.fitBounds(line.getBounds(), { padding: [18, 18] });
+  } catch { el.closest(".map")?.remove(); }
+}
 function detailView(r) {
   const m = r.metrics || {}, d = pd(r.date), pend = r.status !== "analizada", p = r.plan && r.plan.date === r.date ? r.plan : null;
   const ifOver = p?.objetivos?.if_max && m.if > p.objetivos.if_max;
@@ -538,6 +561,7 @@ function detailView(r) {
   const q = m.quarters_np || [], qmx = Math.max(...q, 200);
   return `<header style="display:flex;flex-direction:column;gap:6px"><p class="eyebrow">${DAYS[d.getDay()]} ${d.getDate()} de ${MON[d.getMonth()]} · ${m.discipline === "mtb" ? "MTB" : "Carretera"}</p>
     <h1>${esc(r.title || "Salida")}</h1><div class="row"><span class="pill ${(PILL[r.status] || PILL.pendiente)[0]}">${{ pendiente: "Pendiente de feedback", analizada: "Analizada", historial: "Historial" }[r.status] || "Pendiente de feedback"}</span>${p ? `<span class="muted small">Plan: ${esc(p.tipo)}</span>` : ""}</div></header>
+  ${m.route?.length > 1 ? `<section class="card map"><div id="rmap" role="img" aria-label="Mapa de la ruta"></div></section>` : ""}
   <div class="stats">
     <div class="stat"><b>${m.km ?? "–"} km</b><span>distancia</span></div><div class="stat"><b>${m.elev_m ?? "–"} m</b><span>desnivel</span></div>
     <div class="stat"><b>${esc(m.moving || "–")}</b><span>en movimiento</span></div><div class="stat"><b style="${ifOver ? "color:var(--hot)" : ""}">${m.if != null ? dec(m.if) : "–"}</b><span>IF${p?.objetivos?.if_max ? ` · plan ≤ ${dec(p.objetivos.if_max)}` : ""}</span></div>
@@ -631,7 +655,7 @@ function memberDetail(m) {
 }
 function climbCard(c) {
   return `<section class="card climb"><h3>${esc(c.name)} <span class="pill">${c.disc === "mtb" ? "MTB" : "Carretera"}</span></h3>${c.tramo ? `<p class="muted small">Se compara ${esc(c.tramo)}: es el tramo que se mide igual en todas las pasadas.</p>` : ""}
-    <ol class="rank">${c.riders.map((r, i) => `<li class="${r.me ? "me" : ""}"><span class="pos">${i + 1}</span>${avatarHTML(r.name, r.avatar, 30)}<span class="nm"><span class="who">${esc(r.me ? "Tú" : r.name.split(" ")[0])}</span><span class="muted small">última ${esc(r.last)} · ${esc(dshort(r.last_date))}${r.passes ? ` · ${r.passes} ${r.passes === 1 ? "vez" : "veces"}` : ""}</span></span><b class="tm">${esc(r.best)}</b></li>`).join("")}</ol></section>`;
+    <ol class="rank">${c.riders.map((r, i) => `<li class="${r.me ? "me" : ""}"><span class="pos">${i + 1}</span>${i === 0 ? `<span class="first" title="Mejor tiempo">${ICON.trophy}</span>` : ""}${avatarHTML(r.name, r.avatar, 30)}<span class="nm"><span class="who">${esc(r.me ? "Tú" : r.name.split(" ")[0])}</span><span class="muted small">última ${esc(r.last)} · ${esc(dshort(r.last_date))}${r.passes ? ` · ${r.passes} ${r.passes === 1 ? "vez" : "veces"}` : ""}</span></span><b class="tm">${esc(r.best)}</b></li>`).join("")}</ol></section>`;
 }
 function groupView() {
   const c = S.community;
@@ -643,7 +667,7 @@ function groupView() {
   ${!c.decided ? `<p class="muted small" style="margin:-4px 4px 0">Se ve tu semana, tus salidas y tus subidas. <button class="link inline" data-open="compartir">Elegir qué mostrar</button></p>` : ""}
   <h2 class="sect">${others.length} compañero${others.length === 1 ? "" : "s"}</h2>
   ${others.length ? `<section class="card list">${others.map(memberRow).join("")}</section>` : `<div class="empty">Cuando entren más compañeros, aparecerán aquí.</div>`}
-  ${c.subidas.length ? `<section class="card list"><button class="mrow" data-open="subidas"><span class="ico">⛰</span><div class="mtxt"><p class="t">Subidas del club</p><p class="m">Tiempos de la grupeta en ${c.subidas.length} subida${c.subidas.length === 1 ? "" : "s"}</p></div><span class="chev">›</span></button></section>` : ""}`;
+  ${c.subidas.length ? `<section class="card list"><button class="mrow" data-open="subidas"><span class="ico cup">${ICON.trophy}</span><div class="mtxt"><p class="t">Subidas del club</p><p class="m">Tiempos de la grupeta en ${c.subidas.length} subida${c.subidas.length === 1 ? "" : "s"}</p></div><span class="chev">›</span></button></section>` : ""}`;
 }
 
 /* ---------- Uso del piloto (solo Manu) ---------- */
@@ -741,7 +765,7 @@ function renderSheet() {
     if (!r) { sc.innerHTML = `<div class="empty">Esta salida aún no está aquí. Tira hacia abajo en Salidas para buscarla.</div>`; }
     else {
       const ae = document.activeElement; if (ae && ae.id === "fb-text" && sh.classList.contains("on") && sc.dataset.id === r.id && !wireFeedback.busy) return;
-      $("#st").textContent = r.title || "Salida"; $("#back-l").textContent = "Salidas"; sc.dataset.id = r.id; sc.innerHTML = detailView(r); wireFeedback(r);
+      $("#st").textContent = r.title || "Salida"; $("#back-l").textContent = "Salidas"; sc.dataset.id = r.id; sc.innerHTML = detailView(r); drawRoute(r); wireFeedback(r);
       $("#sact").innerHTML = `<button class="iconbtn" id="share" aria-label="Compartir">${ICON.share}</button>`; prepareShare(r); $("#share").onclick = () => shareRide(r);
       if (goFb === r.id) { goFb = null; setTimeout(() => { const f = $("#fb"); const sc2 = $("#sscroll"); if (f) sc2.scrollTo({ top: f.getBoundingClientRect().top - sc2.getBoundingClientRect().top + sc2.scrollTop - 70, behavior: "smooth" }); }, 420); }
     }
