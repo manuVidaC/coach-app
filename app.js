@@ -4,7 +4,7 @@ const SUPA_URL = "https://iglbakcgsahqmoepkoyc.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGJha2Nnc2FocW1vZXBrb3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5Mjc0NzAsImV4cCI6MjExMDUwMzQ3MH0.XENiPTNHvEWkva0agvbGRHrbmGGKt40dEQ8ZTgNMWz4";
 const VAPID = "BJJQBXNoM0RiUnLaiZx4BxfKxSCGfNpkIIH_PTa-48WnvwrwTADD_mzZ1dJOuUkXvBCDKbndtNUaIZKFNEfvPDA";
 const FN = SUPA_URL + "/functions/v1/coach";
-const VERSION = "1.7.3";
+const VERSION = "1.7.4";
 
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: "coach-auth" } });
 const $ = (s, e = document) => e.querySelector(s);
@@ -404,9 +404,9 @@ function weekView() {
   const mx = Math.max(t.load * 1.15, ...past.map(p => p.load)), e = new Date(w.mon); e.setDate(e.getDate() + 6);
   const pushCard = standalone && "PushManager" in window && Notification.permission === "default"
     ? `<section class="card"><h3>Activa los avisos</h3><p class="muted">Te aviso cuando sincronices una salida, para que me cuentes cómo fue.</p><button class="btn primary" id="push-on">Activar avisos</button></section>` : "";
-  return `<header><p class="eyebrow">${w.mon.getDate()} ${MON[w.mon.getMonth()]} – ${e.getDate()} ${MON[e.getMonth()]}</p><h1>Tu semana</h1></header>
+  return `<header><p class="eyebrow">${w.mon.getDate()} ${MON[w.mon.getMonth()]} – ${e.getDate()} ${MON[e.getMonth()]}</p><h1>Coach</h1></header>
   ${importCard()}${pushCard}
-  <section class="card">
+  <section class="card"><h3>Tu semana</h3>
     <div class="row between" style="align-items:baseline"><p><span class="num" style="font-size:44px">${w.pct} %</span> <span class="muted">del objetivo</span></p><p class="muted small">${nf(w.load)} / ${nf(t.load)} de carga</p></div>
     <div class="meter" role="img" aria-label="Carga ${w.pct} % del objetivo"><div style="width:${Math.min(100, w.pct)}%"></div></div>
     <p class="muted small">${fmtH(w.h)} · ${w.inW.length} salida${w.inW.length == 1 ? "" : "s"}${w.strW.length ? ` · ${w.strW.length} de fuerza` : ""} · quedan ${w.left} día${w.left == 1 ? "" : "s"}</p>
@@ -417,11 +417,12 @@ function weekView() {
       <div class="check ${w.strW.length >= t.strength ? "done" : ""}"><span class="d">${w.strW.length >= t.strength ? "✓" : ""}</span>Fuerza${w.strW.length ? ` (${w.strW.length})` : ""}</div>
     </div>
   </section>
+  ${askCard()}
   <section class="card"><h3>Qué toca</h3>
     ${coach ? `<div class="advice"><p class="eyebrow">Del coach</p><p>${md(coach)}</p></div>` : ""}
     ${adv.map(a => `<div class="advice ${a.warn ? "warn" : ""}"><p>${md(a.t)}</p></div>`).join("") || `<p class="muted">Vas bien. Sigue con el plan.</p>`}
   </section>
-  ${planCard(true) || `<section class="card"><h3>Próxima sesión</h3><p class="muted">¿Tienes salida a la vista? Cuéntasela al coach y te dice cómo afrontarla.</p><button class="btn" data-tab="plan">Preguntar al coach</button></section>`}
+  <div id="next">${planCard(true) || `<section class="card"><h3>Próxima sesión</h3><p class="muted">¿Tienes salida a la vista? Pega arriba la convocatoria y el coach te dice cómo afrontarla.</p></section>`}</div>
   <section class="card"><h3>Carga por semana</h3>
     <div class="weeks" role="img" aria-label="Carga de las últimas semanas frente al objetivo de ${t.load}">
       <div class="target" style="bottom:${t.load / mx * 96 + 18}px"></div>
@@ -432,7 +433,7 @@ function weekView() {
 }
 function planCard(compact) {
   const p = S.plan;
-  if (!p || !p.tipo || pd(p.date) < today()) return compact ? "" : `<div class="empty">No hay sesión propuesta. Cuéntale al coach tu próxima salida aquí abajo y te la prepara.</div>`;
+  if (!p || !p.tipo || pd(p.date) < today()) return compact ? "" : `<div class="empty">No hay sesión propuesta. Pega la convocatoria en <button class="link inline" data-tab="semana">Pregúntale al coach</button> y te la prepara.</div>`;
   const lab = k => { const s = k.replace(/_w$/, " (W)").replace(/_/g, " ").replace(/^if max$/, "IF máximo"); return s.charAt(0).toUpperCase() + s.slice(1); };
   const items = Object.entries(p.objetivos || {}).map(([k, v]) => `<li><strong>${esc(lab(k))}:</strong> ${esc(v)}</li>`).join("");
   const d = pd(p.date), when = iso(d) === iso(today()) ? "Hoy" : (d - today()) / 864e5 === 1 ? "Mañana" : `${DAYS[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`;
@@ -451,8 +452,8 @@ function planCard(compact) {
 }
 function askCard() {
   return `<section class="card" id="ask"><h3>Pregúntale al coach</h3>
-    <p class="muted small">Pega el mensaje de la grupeta o cuéntale qué tienes previsto, y te dice cómo afrontarlo.</p>
-    <textarea id="ask-text" placeholder="Ej.: mañana grupeta 9:30, Assuán-Trassierra-Artafi, 2 h 800+ en Z2. ¿Aprieto? ¿Alargo?"></textarea>
+    <p class="muted small">Pega la convocatoria de la grupeta o cuéntale qué tienes previsto, y te dice cómo afrontarla.</p>
+    <textarea id="ask-text" class="convo" rows="9" placeholder="*SALIDA MTB SÁBADO*&#10;🚴🏼‍♂️🚴🏼‍♂️🚴🏼‍♂️🚴🏼‍♂️🚴🏼‍♂️&#10;✅ *Hora*: 9.30 horas&#10;✅ *Lugar*: Cines El Tablero&#10;✅ *Ruta*: Assuán-Trassierra-Artafi&#10;✅ *Duración y desnivel*: 2h 800+&#10;✅ *Ritmo*: Z2&#10;_Asistentes_&#10;✔️ …"></textarea>
     <button class="btn primary" id="ask-send">Preguntar</button>
     <p class="ferr" id="ask-err" role="alert"></p><div id="ask-live" aria-live="polite"></div></section>`;
 }
@@ -470,7 +471,8 @@ function wireAsk() {
     btn.disabled = false; wireAsk.busy = false; live.innerHTML = "";
     if (!res.ok) { err.textContent = limitMsg(res, "preguntas") || { no_autorizado: "Tu cuenta aún no está activada.", red: "Sin conexión. Tu texto sigue guardado." }[res.error] || `No se pudo preparar ahora (${res.error || "error"}). Inténtalo otra vez.`; return; }
     store.del("coach-ask-draft"); S.plan = res.plan; saveCache();
-    if (tab !== "plan") go("plan"); else { render(); $("#scroll").scrollTo({ top: 0, behavior: "smooth" }); }
+    if (tab === "semana") { render(); $("#next")?.scrollIntoView({ behavior: "smooth", block: "start" }); }
+    else if (tab !== "plan") go("plan"); else { render(); $("#scroll").scrollTo({ top: 0, behavior: "smooth" }); }
     toast("Plan listo");
   };
 }
@@ -488,7 +490,7 @@ function ridesView() {
   ${items.length ? `<div class="list">${items.map(row).join("")}</div>` : `<div class="empty">Aún no hay salidas. Sincroniza una desde el Karoo y tira hacia abajo para buscarla.</div>`}`;
 }
 function planView() {
-  return `<header><p class="eyebrow">Lo que te propone el coach</p><h1>Plan</h1></header>${planCard(false)}${askCard()}
+  return `<header><p class="eyebrow">Lo que te propone el coach</p><h1>Plan</h1></header>${planCard(false)}
   <section class="card"><h3>Objetivo semanal</h3><ul class="ins">
     <li>${nf(target().load)} de carga a la semana.</li><li>${target().rides} salidas (mínimo ${target().min_rides}).</li>
     <li>Una tirada larga: ${dec(target().long_min_h, 1)} h o ${nf(target().long_min_kj)} kJ.</li><li>Una sesión de calidad: IF de ${dec(target().quality_if)} o más.</li></ul>

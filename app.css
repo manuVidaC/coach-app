@@ -261,3 +261,6 @@ h2.sect{font-family:var(--display);font-size:22px;margin:8px 4px 0}
 .rank .first{display:inline-flex;color:var(--sun);margin:0 -2px 0 -4px}
 .rank .first svg{width:18px;height:18px}
 #rmap .osm-dark{filter:invert(1) hue-rotate(180deg) brightness(.95) contrast(.85) saturate(.6)}
+#ask-text.convo{min-height:236px;line-height:1.4}
+#ask-text.convo::placeholder{color:var(--faint);opacity:1}
+#next{scroll-margin-top:12px}
