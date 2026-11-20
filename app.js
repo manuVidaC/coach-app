@@ -4,7 +4,7 @@ const SUPA_URL = "https://iglbakcgsahqmoepkoyc.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGJha2Nnc2FocW1vZXBrb3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5Mjc0NzAsImV4cCI6MjExMDUwMzQ3MH0.XENiPTNHvEWkva0agvbGRHrbmGGKt40dEQ8ZTgNMWz4";
 const VAPID = "BJJQBXNoM0RiUnLaiZx4BxfKxSCGfNpkIIH_PTa-48WnvwrwTADD_mzZ1dJOuUkXvBCDKbndtNUaIZKFNEfvPDA";
 const FN = SUPA_URL + "/functions/v1/coach";
-const VERSION = "1.7.0";
+const VERSION = "1.7.1";
 
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: "coach-auth" } });
 const $ = (s, e = document) => e.querySelector(s);
@@ -671,7 +671,7 @@ function shell() {
     <div class="topbar" id="topbar"><span class="row" style="gap:2px;align-items:center"><button class="iconbtn rf" id="rf" aria-label="Buscar salidas nuevas">${ICON.refresh}</button><span class="beta sm">Beta</span></span><span class="t" id="tt"></span><button class="iconbtn" id="me" aria-label="Ajustes">${avatarHTML(S.profile?.name || session.user.email, S.profile?.avatar_url, 32)}</button></div>
     <main class="scroll" id="scroll"><div class="content" id="content"></div></main>
     <nav class="tabbar" id="tabbar">
-      <button class="tab" data-tab="semana">${ICON.semana}<span>Semana</span></button>
+      <button class="tab" data-tab="semana">${ICON.semana}<span>Coach</span></button>
       <button class="tab" data-tab="salidas">${ICON.salidas}<span>Salidas</span><span class="dot" id="badge" hidden></span></button>
       <button class="tab" data-tab="grupeta">${ICON.grupeta}<span>Grupeta</span></button>
       <button class="tab" data-tab="plan">${ICON.plan}<span>Plan</span></button>
@@ -755,7 +755,7 @@ function render() {
   if ((ae && ae.id === "ask-text") || wireAsk.busy) { if (location.hash) renderSheet(); return; }
   $("#content").innerHTML = (views[tab] || weekView)();
   wireAsk();
-  $("#tt").textContent = { semana: "Tu semana", salidas: "Salidas", grupeta: "Grupeta", plan: "Plan" }[tab];
+  $("#tt").textContent = { semana: "Coach", salidas: "Salidas", grupeta: "Grupeta", plan: "Plan" }[tab];
   if (tab === "grupeta") { wireGroup(); loadCommunity(); }
   document.querySelectorAll(".tab").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
   const pend = S.rides.filter(r => r.status === "pendiente").length, bd = $("#badge");
