@@ -4,7 +4,7 @@ const SUPA_URL = "https://iglbakcgsahqmoepkoyc.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGJha2Nnc2FocW1vZXBrb3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5Mjc0NzAsImV4cCI6MjExMDUwMzQ3MH0.XENiPTNHvEWkva0agvbGRHrbmGGKt40dEQ8ZTgNMWz4";
 const VAPID = "BJJQBXNoM0RiUnLaiZx4BxfKxSCGfNpkIIH_PTa-48WnvwrwTADD_mzZ1dJOuUkXvBCDKbndtNUaIZKFNEfvPDA";
 const FN = SUPA_URL + "/functions/v1/coach";
-const VERSION = "1.7.7";
+const VERSION = "1.7.8";
 
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: "coach-auth" } });
 const $ = (s, e = document) => e.querySelector(s);
@@ -553,14 +553,42 @@ function loadLeaflet() {
     const js = document.createElement("script"); js.src = "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"; js.onload = () => ok(window.L); js.onerror = e => { leafletP = null; ko(e); }; document.head.appendChild(js);
   });
 }
+function baseMap(L, el) {
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  const map = L.map(el, { zoomControl: false, attributionControl: true, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false, boxZoom: false, keyboard: false, tap: false });
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, className: dark ? "osm-dark" : "", attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(map);
+  map.attributionControl.setPrefix(false);
+  return { map, dark };
+}
+// Segmento de una subida del club: la subida entera en gris y, encima, el tramo que se compara.
+const spanOf = t => !t ? [0, 4] : /segunda mitad/.test(t) ? [2, 4] : /central/.test(t) ? [1, 3] : (m => m ? [+m[1] / 25, +m[2] / 25] : [0, 4])(/del (\d+) % al (\d+) %/.exec(t));
+async function toggleSegment(btn) {
+  const box = btn.closest(".card").querySelector(".segmap");
+  const open = box.hidden;
+  box.hidden = !open; btn.setAttribute("aria-expanded", String(open)); btn.textContent = open ? "Ocultar segmento" : "Ver segmento";
+  if (!open || box.dataset.done) return;
+  box.innerHTML = `<div class="segm"></div><p class="muted small segleg"><span><span class="dot g"></span> Empieza a contar</span><span><span class="dot r"></span> Termina</span><span><span class="ln"></span> Resto de la subida</span></p>`;
+  try {
+    if (!S.refClimbs) { const { data } = await sb.from("ref_climbs").select("key,name,checkpoints,path"); S.refClimbs = Object.fromEntries((data || []).map(x => [x.key, x])); }
+    const c = S.refClimbs[btn.dataset.seg]; if (!c) throw 0;
+    const cps = c.checkpoints || [], path = c.path?.length > 1 ? c.path : cps, [a, b] = spanOf(btn.dataset.tramo);
+    const near = p => path.reduce((bi, q, i) => ((q[0] - p[0]) ** 2 + (q[1] - p[1]) ** 2 < (path[bi][0] - p[0]) ** 2 + (path[bi][1] - p[1]) ** 2 ? i : bi), 0);
+    const i0 = cps[a] ? near(cps[a]) : 0, i1 = cps[b] ? Math.max(i0 + 1, near(cps[b])) : path.length - 1;
+    const L = await loadLeaflet(), { map, dark } = baseMap(L, box.querySelector(".segm"));
+    L.polyline(path, { color: dark ? "#9aa5a1" : "#6b7773", weight: 4, opacity: .7, dashArray: "6 6" }).addTo(map);
+    const seg = L.polyline(path.slice(i0, i1 + 1), { color: dark ? "#ff7a3d" : "#e85d1f", weight: 5, opacity: .95, lineJoin: "round" }).addTo(map);
+    L.circleMarker(path[i0], { radius: 6, color: "#fff", weight: 2, fillColor: "#2fb36b", fillOpacity: 1 }).addTo(map).bindTooltip("Empieza a contar", { direction: "top" });
+    L.circleMarker(path[i1], { radius: 6, color: "#fff", weight: 2, fillColor: "#d64545", fillOpacity: 1 }).addTo(map).bindTooltip("Termina", { direction: "top" });
+    map.fitBounds(L.polyline(path).getBounds(), { padding: [16, 16] });
+    box.dataset.done = 1;
+  } catch { box.innerHTML = `<p class="muted small">No he podido cargar el mapa del segmento.</p>`; }
+}
+document.addEventListener("click", e => { const b = e.target.closest?.("[data-seg]"); if (b) { e.preventDefault(); toggleSegment(b); } });
 async function drawRoute(r) {
   const el = $("#rmap"), pts = r.metrics?.route; if (!el || !(pts?.length > 1)) return;
   try {
     const L = await loadLeaflet(); if (!el.isConnected) return;
-    const dark = matchMedia("(prefers-color-scheme: dark)").matches;
-    const map = L.map(el, { zoomControl: false, attributionControl: true, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false, boxZoom: false, keyboard: false, tap: false });
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, className: dark ? "osm-dark" : "", attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(map);
-    map.attributionControl.setPrefix(false);
+    const { map, dark } = baseMap(L, el);
     const line = L.polyline(pts, { color: dark ? "#ff7a3d" : "#e85d1f", weight: 4, opacity: .95, lineJoin: "round" }).addTo(map);
     L.circleMarker(pts[0], { radius: 5, color: "#fff", weight: 2, fillColor: "#2fb36b", fillOpacity: 1 }).addTo(map);
     L.circleMarker(pts[pts.length - 1], { radius: 5, color: "#fff", weight: 2, fillColor: "#d64545", fillOpacity: 1 }).addTo(map);
@@ -667,7 +695,7 @@ function memberDetail(m) {
   ${!w && !m.salidas && !climbs.length ? `<div class="empty">${esc(m.name.split(" ")[0])} prefiere no mostrar más datos.</div>` : ""}`;
 }
 function climbCard(c) {
-  return `<section class="card climb"><h3>${esc(c.name)} <span class="pill">${c.disc === "mtb" ? "MTB" : "Carretera"}</span></h3>${c.tramo ? `<p class="muted small">Se compara ${esc(c.tramo)}: es el tramo que se mide igual en todas las pasadas.</p>` : ""}
+  return `<section class="card climb"><h3>${esc(c.name)} <span class="pill">${c.disc === "mtb" ? "MTB" : "Carretera"}</span></h3><p class="muted small">${c.tramo ? `Se compara ${esc(c.tramo)}: es el tramo que se mide igual en todas las pasadas. ` : ""}<button class="link inline" data-seg="${esc(c.key)}" data-tramo="${esc(c.tramo || "")}" aria-expanded="false">Ver segmento</button></p><div class="segmap" hidden></div>
     <ol class="rank">${c.riders.map((r, i) => `<li class="${r.me ? "me" : ""}"><span class="pos">${i + 1}</span>${i === 0 ? `<span class="first" title="Mejor tiempo">${ICON.trophy}</span>` : ""}${avatarHTML(r.name, r.avatar, 30)}<span class="nm"><span class="who">${esc(r.me ? "Tú" : r.name.split(" ")[0])}</span><span class="muted small">última ${esc(r.last)} · ${esc(dshort(r.last_date))}${r.passes ? ` · ${r.passes} ${r.passes === 1 ? "vez" : "veces"}` : ""}</span></span><b class="tm">${esc(r.best)}</b></li>`).join("")}</ol></section>`;
 }
 function groupView() {
