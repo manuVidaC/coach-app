@@ -4,7 +4,7 @@ const SUPA_URL = "https://iglbakcgsahqmoepkoyc.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGJha2Nnc2FocW1vZXBrb3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5Mjc0NzAsImV4cCI6MjExMDUwMzQ3MH0.XENiPTNHvEWkva0agvbGRHrbmGGKt40dEQ8ZTgNMWz4";
 const VAPID = "BJJQBXNoM0RiUnLaiZx4BxfKxSCGfNpkIIH_PTa-48WnvwrwTADD_mzZ1dJOuUkXvBCDKbndtNUaIZKFNEfvPDA";
 const FN = SUPA_URL + "/functions/v1/coach";
-const VERSION = "1.7.6";
+const VERSION = "1.7.7";
 
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: "coach-auth" } });
 const $ = (s, e = document) => e.querySelector(s);
@@ -22,6 +22,10 @@ const dec = (n, d = 2) => (+n).toFixed(d).replace(".", ",");
 const today = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
 const store = { get(k, f) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : f; } catch { return f; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }, del(k) { try { localStorage.removeItem(k); } catch {} } };
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const isAndroid = /android/i.test(navigator.userAgent);
+// Android/Chrome ofrece su propio aviso de instalación: lo guardamos para lanzarlo desde un botón.
+let installEvt = null;
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; const b = document.getElementById("inst"); if (b) b.hidden = false; });
 const standalone = window.navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
 
 const S = Object.assign({ rides: [], weeks: {}, plan: null, profile: null, strength: [] }, store.get("coach-cache", {}));
@@ -96,14 +100,21 @@ addEventListener("orientationchange", () => setTimeout(() => { if ($("#hero")) h
 function showInstall() {
   root.innerHTML = heroHTML() + `<div class="gate hero" id="gc">
     <div><span class="beta">Beta</span><h1 style="margin-top:10px">Instala tu coach</h1><p style="margin-top:8px">Añádelo a la pantalla de inicio: se abrirá como una app, a pantalla completa y con avisos cuando termines una salida.</p></div>
+    ${isAndroid ? `<button class="btn primary block" id="inst" ${installEvt ? "" : "hidden"}>Instalar la app</button>
     <div class="card"><ol class="steps">
+      <li><span class="n">1</span><p>En <strong>Chrome</strong>, pulsa el menú <strong>⋮</strong> arriba a la derecha.</p></li>
+      <li><span class="n">2</span><p>Elige <strong>Instalar aplicación</strong> o <strong>Añadir a pantalla de inicio</strong>.</p></li>
+      <li><span class="n">3</span><p>Confirma con <strong>Instalar</strong> y abre <strong>Coach</strong> desde tu pantalla de inicio.</p></li>
+    </ol></div>` : `<div class="card"><ol class="steps">
       <li><span class="n">1</span><p>Pulsa <strong>Compartir</strong> ${ICON.share} en la barra de Safari.</p></li>
       <li><span class="n">2</span><p>Elige <strong>Añadir a pantalla de inicio</strong> ${ICON.plus}.</p></li>
       <li><span class="n">3</span><p>Pulsa <strong>Añadir</strong> y abre <strong>Coach</strong> desde tu pantalla de inicio.</p></li>
-    </ol></div>
+    </ol></div>`}
     <button class="link" id="skip">Seguir en el navegador</button>
   </div>`;
   $("#skip").onclick = () => { store.set("coach-skip-install", 1); showLogin(); };
+  const ib = $("#inst");
+  if (ib) ib.onclick = async () => { if (!installEvt) return; installEvt.prompt(); const r = await installEvt.userChoice.catch(() => null); installEvt = null; ib.hidden = true; if (r?.outcome === "accepted") toast("Listo: abre Coach desde tu pantalla de inicio"); };
   heroRun($("#gc"));
 }
 
@@ -1098,7 +1109,7 @@ sb.auth.onAuthStateChange((ev, s) => {
   const { data } = await sb.auth.getSession();
   session = data.session;
   if (session) { if (!entered) { entered = true; enter(); } return; }
-  if (isIOS && !standalone && !store.get("coach-skip-install", 0)) showInstall(); else showLogin();
+  if ((isIOS || isAndroid) && !standalone && !store.get("coach-skip-install", 0)) showInstall(); else showLogin();
 })();
 document.addEventListener("visibilitychange", async () => { if (document.visibilityState === "visible" && session) { consumeNav(); markSeen(); try { await loadAll(); render(); } catch {} } });
 })();
